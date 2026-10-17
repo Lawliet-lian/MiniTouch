@@ -8,6 +8,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -48,6 +49,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         setupAppList();
         setupBallParams();
+        setupQuickSwitch();
         setupBallActions();
         setupPermissionCard();
     }
@@ -133,6 +135,20 @@ public class SettingsActivity extends AppCompatActivity {
                 .setProgress(Math.round((prefs.getBallSizePercent() - 4f) / 12f * 100));
         ((SeekBar) findViewById(R.id.sb_ball_alpha))
                 .setProgress(Math.round((prefs.getAlphaActive() - 0.3f) / 0.7f * 100));
+    }
+
+    // ==================== 闪切模式开关 ====================
+
+    /**
+     * 闪切模式：开启后单击悬浮球不展开 9 宫格面板，
+     * 改为在序号第一的常用 App 与主页间来回切换（切换逻辑在 FloatingBallService）。
+     * 与滑块一致“改动即落库”，服务侧监听 prefs 自动生效，无需额外通知。
+     */
+    private void setupQuickSwitch() {
+        SwitchCompat sw = findViewById(R.id.sw_quick_switch);
+        sw.setChecked(prefs.isQuickSwitchMode());
+        sw.setOnCheckedChangeListener((buttonView, isChecked) ->
+                prefs.setQuickSwitchMode(isChecked));
     }
 
     // ==================== 球服务操作：启动 / 隐藏 / 恢复默认 ====================

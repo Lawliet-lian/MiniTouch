@@ -32,6 +32,8 @@ import com.lawliet.minitouch.core.PrefsRepository;
 import com.lawliet.minitouch.core.ReviveScheduler;
 import com.lawliet.minitouch.ui.SettingsActivity;
 
+import java.util.List;
+
 /**
  * 悬浮球前台服务（§4.1 FloatingBallService；覆盖 F1/F2/F3/F6/F7 —— Phase 1 全部核心）。
  *
@@ -56,6 +58,11 @@ public class FloatingBallService extends Service implements PanelController.Call
     private static final int SNAP_ANIM_MS = 180;
     /** 防烧屏微调周期：隐藏态每分钟 1px（§5-F1） */
     private static final long ANTI_BURN_PERIOD_MS = 60_000L;
+    /** 闪切模式下长按球打开面板的时长：GestureDetector 的长按阈值是系统固定的（约 400ms），无法满足自定义需求，故手写定时器；
+     * 1.5s 既能与正常点击（几百毫秒）拉开差距防误触，又不像 3s 那样手感偏久 */
+    private static final long LONG_PRESS_OPEN_PANEL_MS = 1500L;
+    /** 长按消费标志的延迟清除：须晚于 onSingleTapConfirmed 的确认延迟（约 300ms），防残留标志误吞下一次单击 */
+    private static final long LONG_PRESS_FLAG_CLEAR_DELAY_MS = 600L;
 
     private WindowManager windowManager;
     private PrefsRepository prefs;
@@ -76,9 +83,21 @@ public class FloatingBallService extends Service implements PanelController.Call
     private PanelController panelController;
     private boolean panelShowing;
 
+    // ---- 闪切模式（单击球在首项 App 与主页间来回切换） ----
+    /** 两态翻转标志：true = 下次单击切回首项 App，false = 下次单击切回主页 */
+    private boolean quickSwitchToApp = true;
+    /** 闪切模式无可用首项 App 时的 toast 节流，避免连点刷屏 */
+    private long lastQuickSwitchToastAt;
+    /** 长按定时器已触发标志：抑制随后的单击手势与 GestureDetector 默认长按（进设置页） */
+    private boolean longPressConsumed;
+
     // ---- 空闲隐藏 / 防烧屏 ----
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Runnable idleHideTask = this::hideBallToIdle;
+    /** 闪切模式下的长按定时器：到点即展开面板（普通模式不启用，仍走 GestureDetector 默认长按进设置） */
+    private final Runnable longPressOpenPanelTask = this::onLongPressOpenPanelFired;
+    /** 延迟清除长按消费标志 */
+    private final Runnable clearLongPressFlagTask = () -> longPressConsumed = false;
     private final Runnable antiBurnTask = new Runnable() {
         @Override
         public void run() {
@@ -114,9 +133,21 @@ public class FloatingBallService extends Service implements PanelController.Call
             PrefsRepository.KEY_ALPHA_IDLE,
             PrefsRepository.KEY_HIDE_DELAY_MS };
 
+    /** 闪切模式 toast 节流间隔（ms） */
+    private static final long QUICK_SWITCH_TOAST_GAP_MS = 3000L;
+
     /** 球参数热更新：设置页拖动滑块即时刻生效（原 TODO(M4) 落地） */
     private final SharedPreferences.OnSharedPreferenceChangeListener prefListener =
             (sp, key) -> {
+                // 闪切模式开关变化：若面板正展开，立即收起（该模式下不再展开面板）
+                if (PrefsRepository.KEY_QUICK_SWITCH_MODE.equals(key)) {
+                    mainHandler.post(() -> {
+                        if (panelShowing) {
+                            closePanel();
+                        }
+                    });
+                    return;
+                }
                 for (String k : BALL_PREF_KEYS) {
                     if (k.equals(key)) {
                         // 回调在写库线程触发，回主线程刷 UI
@@ -338,6 +369,13 @@ public class FloatingBallService extends Service implements PanelController.Call
                 downX = ballLp.x;
                 downY = ballLp.y;
                 dragging = false;
+                // 闪切模式：按下即起长按定时器（1.5s），到点展开面板；普通模式不启用，维持原“长按进设置”
+                mainHandler.removeCallbacks(longPressOpenPanelTask);
+                mainHandler.removeCallbacks(clearLongPressFlagTask);
+                longPressConsumed = false;
+                if (prefs.isQuickSwitchMode()) {
+                    mainHandler.postDelayed(longPressOpenPanelTask, LONG_PRESS_OPEN_PANEL_MS);
+                }
                 break;
             case MotionEvent.ACTION_MOVE: {
                 float dx = event.getRawX() - downRawX;
@@ -345,6 +383,8 @@ public class FloatingBallService extends Service implements PanelController.Call
                 if (!dragging && Math.hypot(dx, dy) > touchSlop) {
                     dragging = true;
                     cancelIdleHide(); // 拖拽期间不隐藏
+                    // 拖动中不算长按：取消长按定时器
+                    mainHandler.removeCallbacks(longPressOpenPanelTask);
                     if (panelShowing) {
                         closePanel(); // 拖球时面板自动收起
                     }
@@ -360,6 +400,12 @@ public class FloatingBallService extends Service implements PanelController.Call
             }
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
+                mainHandler.removeCallbacks(longPressOpenPanelTask);
+                if (longPressConsumed) {
+                    // 长按已触发：标志延迟清除（须晚于单击确认的约 300ms 判定窗口），
+                    // 本次抬手不再当单击处理；已展开的面板保持不收起
+                    mainHandler.postDelayed(clearLongPressFlagTask, LONG_PRESS_FLAG_CLEAR_DELAY_MS);
+                }
                 if (dragging) {
                     snapToEdge();      // 松手贴边动画（§5-F1）
                     restartIdleTimer();
@@ -442,11 +488,20 @@ public class FloatingBallService extends Service implements PanelController.Call
 
         @Override
         public boolean onSingleTapConfirmed(MotionEvent e) {
-            if (dragging) {
-                return true;
+            if (dragging || longPressConsumed) {
+                return true; // 长按已展开面板，本次抬手不再当单击
             }
             restoreBallAlpha();
-            togglePanel();
+            // 闪切模式：不默认展开 9 宫格面板（长按 1.5 秒才开），单击即在首项 App 与主页间来回切换
+            if (prefs.isQuickSwitchMode()) {
+                if (panelShowing) {
+                    closePanel(); // 长按打开的面板：单击球先收起（不闪切，防误触切走界面）
+                } else {
+                    quickSwitchToggle();
+                }
+            } else {
+                togglePanel();
+            }
             return true;
         }
 
@@ -455,11 +510,60 @@ public class FloatingBallService extends Service implements PanelController.Call
             if (dragging) {
                 return;
             }
+            // 闪切模式：长按语义改为由定时器（1.5s）展开面板，忽略 GestureDetector 默认长按（约 400ms 即触发）；
+            // 若定时器已触发过则直接吞掉
+            if (prefs.isQuickSwitchMode()) {
+                return;
+            }
             openSettings();
         }
     }
 
+    /** 长按定时器（1.5s）到点（仅闪切模式）：展开面板并置消费标志，抑制后续单击/默认长按 */
+    private void onLongPressOpenPanelFired() {
+        if (!prefs.isQuickSwitchMode()) {
+            return; // 定时器挂载后用户中途关了开关，此处兜底忽略
+        }
+        longPressConsumed = true;
+        restoreBallAlpha();
+        showPanel();
+    }
+
     // ==================== 面板开合（F2） ====================
+
+    /**
+     * 闪切模式：在「序号第一的常用 App」与「主页」之间来回快速切换。
+     * 采用两态翻转标志而非实时探测前台包名（探测需更高权限且不可靠）：
+     * 首次单击启动首项 App，再次单击回主页，依次往复。
+     */
+    private void quickSwitchToggle() {
+        // 每次单击都重新取列表，设置页排序/勾选变化即时生效
+        List<String> favorites = prefs.getFavoritePkgs();
+        if (favorites.isEmpty()) {
+            // 无首项可切：节流 toast 引导去设置页添加
+            long now = System.currentTimeMillis();
+            if (now - lastQuickSwitchToastAt > QUICK_SWITCH_TOAST_GAP_MS) {
+                lastQuickSwitchToastAt = now;
+                Toast.makeText(this, R.string.toast_quick_switch_no_app, Toast.LENGTH_SHORT).show();
+            }
+            return;
+        }
+
+        if (quickSwitchToApp) {
+            if (appRepo.launch(favorites.get(0))) {
+                quickSwitchToApp = false; // 已切到 App，下次单击回主页
+            } else {
+                // 首项已卸载/被停用（§10-R7）：保持标志不变，下次重试
+                Toast.makeText(this, R.string.toast_launch_failed, Toast.LENGTH_SHORT).show();
+            }
+        } else if (NavAccessibilityService.performHome()) {
+            quickSwitchToApp = true; // 已回主页，下次单击切回 App
+        } else {
+            // 回主页依赖无障碍服务（三大金刚同源）
+            Toast.makeText(this, R.string.toast_a11y_needed, Toast.LENGTH_LONG).show();
+            NavAccessibilityService.openAccessibilitySettings(this);
+        }
+    }
 
     private void togglePanel() {
         if (panelShowing) {

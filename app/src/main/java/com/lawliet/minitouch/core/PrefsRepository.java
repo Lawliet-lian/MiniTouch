@@ -24,6 +24,7 @@ public final class PrefsRepository {
     public static final String KEY_ALPHA_ACTIVE = "alpha_active";          // F8：活跃态透明度 0~1
     public static final String KEY_ALPHA_IDLE = "alpha_idle";              // F1：半透明隐藏态透明度 0~1
     public static final String KEY_HIDE_DELAY_MS = "hide_delay_ms";        // F1：无操作隐藏延迟（默认 3s）
+    public static final String KEY_QUICK_SWITCH_MODE = "quick_switch_mode"; // 闪切模式：单击球在首项 App 与主页间来回切换
     private static final String KEY_BALL_X = "ball_x";                     // 球位置记忆（贴边后的 x）
     private static final String KEY_BALL_Y = "ball_y";                     // 球位置记忆（y）
 
@@ -92,6 +93,20 @@ public final class PrefsRepository {
             sb.append(p);
         }
         sp.edit().putString(KEY_FAVORITE_PKGS, sb.toString()).apply();
+    }
+
+    // ==================== 闪切模式（单击球快速来回切换） ====================
+
+    /**
+     * 闪切模式开关：开启后单击悬浮不再展开 9 宫格面板，
+     * 改为在「序号第一的常用 App」与「主页」之间来回快速切换。
+     */
+    public boolean isQuickSwitchMode() {
+        return sp.getBoolean(KEY_QUICK_SWITCH_MODE, false);
+    }
+
+    public void setQuickSwitchMode(boolean enabled) {
+        sp.edit().putBoolean(KEY_QUICK_SWITCH_MODE, enabled).apply();
     }
 
     // ==================== 球参数（F1/F8） ====================

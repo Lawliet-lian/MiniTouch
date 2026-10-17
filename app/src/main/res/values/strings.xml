@@ -27,6 +27,7 @@
     <string name="toast_ball_params_reset">悬浮球参数已恢复默认</string>
     <string name="toast_ball_hidden">悬浮球已隐藏，可在设置页或引导页重新启动</string>
     <string name="toast_ball_not_running">悬浮球未在运行</string>
+    <string name="toast_quick_switch_no_app">闪切模式需要至少勾选 1 个常用程序，请长按球进入设置添加</string>
 
     <!-- 权限状态（F8/引导页） -->
     <string name="status_overlay_granted">悬浮窗：已开启 ✓</string>
@@ -50,6 +51,8 @@
     <string name="settings_section_ball">悬浮球参数</string>
     <string name="settings_ball_size">球大小（按屏幕短边比例）</string>
     <string name="settings_ball_alpha">活跃态透明度</string>
+    <string name="settings_quick_switch">闪切模式</string>
+    <string name="settings_quick_switch_desc">开启后单击悬浮球不再展开快捷面板，而是在序号第一的常用程序和主页之间来回快速切换；长按球 1.5 秒可展开面板（含设置入口与三大金刚），回主页依赖无障碍服务</string>
     <string name="settings_section_apps">常用程序（已选置顶，序号即面板宫格顺序）</string>
     <string name="settings_favorite_count">已选 %1$d / %2$d · 点击整行勾选/取消，按住 ≡ 拖动调整顺序</string>
     <string name="settings_drag_handle_desc">拖动调整顺序</string>
