@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- §7.2：深色半透明面板（车机夜间友好），高对比图标 -->
+    <color name="panel_bg">#E626323C</color>          <!-- 面板底：深蓝灰 90% 不透明 -->
+    <color name="panel_divider">#33FFFFFF</color>     <!-- 面板分行线 -->
+    <color name="ball_fill">#995C6F7C</color>         <!-- 球底：灰蓝 60% -->
+    <color name="ball_stroke">#66FFFFFF</color>       <!-- 球描边 -->
+    <color name="app_cell_bg">#2FFFFFFF</color>       <!-- 宫格圆形底 -->
+    <color name="app_cell_bg_pressed">#59FFFFFF</color> <!-- 宫格按下态：提亮，触摸反馈 -->
+    <color name="nav_key_bg">#1AFFFFFF</color>         <!-- 金刚键矩形键帽底（常态） -->
+    <color name="nav_key_bg_pressed">#4DFFFFFF</color> <!-- 金刚键按下态：明显提亮 -->
+    <color name="icon_tint">#FFFFFFFF</color>         <!-- 面板图标统一白色 -->
+    <color name="text_on_panel">#FFFFFFFF</color>
+    <color name="text_on_panel_dim">#B3FFFFFF</color>
+    <color name="accent">#FF4FC3F7</color>            <!-- 强调色（按钮/勾选） -->
+    <color name="card_bg">#F4F6F8</color>            <!-- 设置页卡片（浅色主题） -->
+    <color name="app_row_selected">#FFE3F2FD</color>  <!-- 设置页已选 App 行底：浅蓝，区分已选区/未选区 -->
+    <color name="app_row_dragging">#FFFFFFFF</color>  <!-- 拖拽中的行底：不透明白，浮起时不透出下层行 -->
+    <color name="ic_launcher_bg">#FF37474F</color>   <!-- 桌面图标底色（深蓝灰） -->
+</resources>

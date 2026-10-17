@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?><!-- 收起面板图标（自绘 X）：表示关闭当前悬浮窗口（面板），不影响悬浮球本体 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 两条对角粗条交叉成 X：用旋转矩形路径绘制，端点圆角由 strokeCap 表达 -->
+    <path
+        android:pathData="M6,6 L18,18 M18,6 L6,18"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round" />
+</vector>

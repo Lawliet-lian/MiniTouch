@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?><!-- 设置页（F8）：权限状态卡 + 球参数 + 常用 App 勾选列表 -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- ===== 权限状态卡片（悬浮窗 Phase 1 / 无障碍 Phase 2） ===== -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_section_perms"
+            android:textSize="@dimen/settings_section_text"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <TextView
+                android:id="@+id/tv_overlay_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+            <Button
+                android:id="@+id/btn_overlay_go"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/btn_go_permission" />
+
+            <TextView
+                android:id="@+id/tv_a11y_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp" />
+
+            <Button
+                android:id="@+id/btn_a11y_go"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/btn_open_a11y" />
+        </LinearLayout>
+
+        <!-- ===== 球参数（F8：大小/透明度滑块） ===== -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/settings_section_ball"
+            android:textSize="@dimen/settings_section_text"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/settings_ball_size" />
+
+        <SeekBar
+            android:id="@+id/sb_ball_size"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="100" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/settings_ball_alpha" />
+
+        <SeekBar
+            android:id="@+id/sb_ball_alpha"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="100" />
+
+        <!-- 球服务操作：启动悬浮球 / 隐藏悬浮球 / 恢复默认参数（恢复后服务侧监听 prefs 自动热更新） -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_start_ball"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_start_ball" />
+
+            <!-- 隐藏悬浮球：与"启动"配对，停止服务并取消复活 -->
+            <Button
+                android:id="@+id/btn_hide_ball"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="@string/btn_hide_ball" />
+
+            <Button
+                android:id="@+id/btn_reset_ball_params"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="@string/btn_reset_ball_params" />
+        </LinearLayout>
+
+        <!-- TODO(F8)：默认贴边位置（左/右）、隐藏延迟、面板标题（Q5）、任务管理器行为（Phase 2） -->
+
+        <!-- ===== 常用 App 管理（F8：勾选=图标+名称+勾选；搜索框 M3 补） ===== -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/settings_section_apps"
+            android:textSize="@dimen/settings_section_text"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_favorite_count"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp" />
+
+        <!-- ScrollView 内嵌列表：固定高度自滚动（骨架够用；M3 改 ConstraintLayout 优化） -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_installed_apps"
+            android:layout_width="match_parent"
+            android:layout_height="400dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_card" />
+    </LinearLayout>
+</ScrollView>

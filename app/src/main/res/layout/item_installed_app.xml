@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?><!-- 设置页 App 行：序号 + 图标 + 名称/包名 + 拖拽手柄 + 勾选（F8）；整行可点击切换勾选 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:foreground="?attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:minHeight="56dp"
+    android:orientation="horizontal"
+    android:paddingStart="8dp"
+    android:paddingEnd="4dp">
+
+    <!-- 宫格序号徽标：仅已选行可见（未选行 INVISIBLE 占位，保持图标列对齐） -->
+    <TextView
+        android:id="@+id/tv_order"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:background="@drawable/bg_order_badge"
+        android:gravity="center"
+        android:textColor="#FFFFFFFF"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        tools:text="1" />
+
+    <ImageView
+        android:id="@+id/iv_app_icon"
+        android:layout_width="@dimen/app_icon_size"
+        android:layout_height="@dimen/app_icon_size"
+        android:layout_marginStart="8dp"
+        android:contentDescription="@string/settings_section_apps"
+        tools:src="@mipmap/ic_launcher" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tv_app_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#DE000000"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/tv_app_pkg"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="middle"
+            android:maxLines="1"
+            android:textColor="#8A000000"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <!-- 拖拽手柄：仅已选行可见，按下即可拖动调整宫格顺序（触摸区 48dp，车机易按中） -->
+    <ImageView
+        android:id="@+id/iv_drag_handle"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:contentDescription="@string/settings_drag_handle_desc"
+        android:scaleType="center"
+        android:src="@drawable/ic_drag_handle" />
+
+    <!-- 勾选框仅作状态展示：点击由整行处理，避免与行点击重复触发 -->
+    <CheckBox
+        android:id="@+id/cb_favorite"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:clickable="false"
+        android:focusable="false" />
+</LinearLayout>

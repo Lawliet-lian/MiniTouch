@@ -1,0 +1,53 @@
+// app 模块构建脚本
+// 基线依据设计文档 §2.2 / §3.4 / §3.5：
+//   - 语言 Java；minSdk 26 / targetSdk 28（锁定，不追高）
+//   - compileSdk 因 AGP 8.1 工具链与本机 SDK 平台取 34（不影响运行时行为，targetSdk 才是约束）
+//   - §3.5 已决策：不设置 abiFilters，保持 universal 包（纯 Java、无 .so）
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.lawliet.minitouch'
+
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.lawliet.minitouch"
+        minSdk 26          // N3：仅面向车载 Android 8+（车机实机为 Android 9）
+        targetSdk 28       // N3/R6：锁定安卓 9，不触发更严的后台/前台服务限制
+        versionCode 1
+        versionName "0.1.0-skeleton"
+    }
+
+    buildTypes {
+        debug {
+            // 调试期不压缩，便于快速装机验证
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // TODO(M5)：配置正式签名，当前先用 debug 签名自测
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    // N2：包体目标 < 5MB，仅依赖 AndroidX 基础库即可达成
+    packaging {
+        resources {
+            excludes += ['META-INF/*']
+        }
+    }
+}
+
+dependencies {
+    // 仅引入必要库：Activity/AppCompat + RecyclerView（设置页列表）
+    implementation 'androidx.appcompat:appcompat:1.3.1'
+    implementation 'androidx.recyclerview:recyclerview:1.2.1'
+}

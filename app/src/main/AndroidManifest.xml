@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MiniTouch 车机悬浮球迷你版 —— 应用清单
+  权限最小化清单见设计文档 §6.1；§6.2 明确不申请 INTERNET 等任何网络/隐私权限。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ===== §6.1 申请的最小权限集 ===== -->
+    <!-- 悬浮球/面板 Overlay（手动授权，Phase 1） -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- 开机自启（F7） -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- 前台服务保活（F7，安卓 8+ 必需） -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- 点击震动反馈（可选，§7.3） -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 电池优化白名单（可选，F7 车机保活） -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- 注意：绝不申请 INTERNET / 定位 / 电话 / 存储等权限（N1/§6.2） -->
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MiniTouch">
+
+        <!-- ===== Activity：权限引导（安装后的主入口） ===== -->
+        <activity
+            android:name=".ui.PermissionGuideActivity"
+            android:exported="true"
+            android:screenOrientation="unspecified">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- ===== Activity：设置页（F8） ===== -->
+        <activity
+            android:name=".ui.SettingsActivity"
+            android:exported="false"
+            android:label="@string/title_settings"
+            android:screenOrientation="unspecified" />
+
+        <!-- ===== Service：悬浮球前台服务（F1/F2/F7） ===== -->
+        <!-- targetSdk 28 无需 foregroundServiceType；由 startForegroundService 启动 -->
+        <service
+            android:name=".overlay.FloatingBallService"
+            android:exported="false" />
+
+        <!-- ===== Service：三大金刚无障碍（F4/§6.3）—— Phase 2 才启用交互 ===== -->
+        <service
+            android:name=".accessibility.NavAccessibilityService"
+            android:exported="true"
+            android:label="@string/a11y_service_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!-- ===== Receiver：开机自启 + 被杀复活（F7/§4.1） ===== -->
+        <receiver
+            android:name=".receiver.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

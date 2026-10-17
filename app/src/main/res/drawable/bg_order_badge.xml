@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?><!-- 设置页已选 App 的宫格序号徽标：强调色圆底 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/accent" />
+</shape>

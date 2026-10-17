@@ -1,0 +1,7 @@
+// 工程级 build.gradle
+// 说明：设计文档 §3.4 写的是 compileSdk 28，但现代 AGP 工具链要求较高的 compileSdk，
+// 且本机 Android SDK 仅装有 android-34 平台；故采用 compileSdk 34 + targetSdk 28 的组合。
+// targetSdk 锁定 28 是文档核心约束（R6/N3：避免触发 Android 9+ 更严的后台限制），保持不变。
+plugins {
+    id 'com.android.application' version '8.1.4' apply false
+}

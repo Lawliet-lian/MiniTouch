@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  弹出面板（§7.1 排布，全部自绘）：
+  标题行(含设置齿轮) → 常用程序宫格(Phase 1) → 三大金刚行(Phase 2，当前 GONE)
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_panel"
+    android:orientation="vertical"
+    android:padding="@dimen/panel_padding">
+
+    <!-- ===== 顶部：标题 + 设置齿轮（§7.1） ===== -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/tv_panel_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/text_on_panel"
+            android:textSize="@dimen/panel_title_text"
+            android:textStyle="bold"
+            tools:text="车机悬浮球·迷你版"
+            xmlns:tools="http://schemas.android.com/tools" />
+
+        <!-- 收起面板（标题行入口）：仅关闭当前悬浮窗口（面板），悬浮球与前台服务保持不动 -->
+        <ImageButton
+            android:id="@+id/btn_panel_close"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="4dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/btn_close_panel"
+            android:scaleType="fitCenter"
+            android:padding="8dp"
+            android:src="@drawable/ic_close_panel" />
+
+        <ImageButton
+            android:id="@+id/btn_panel_settings"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/title_settings"
+            android:scaleType="fitCenter"
+            android:padding="6dp"
+            android:src="@drawable/ic_settings" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="8dp"
+        android:background="@color/panel_divider" />
+
+    <!-- ===== 中部：常用程序宫格（F3，Phase 1；代码动态填充，列数=3，上限 9 格——Q4 拍板）
+         用纵向 LinearLayout 容器 + 每行 weight 三等分，与下排金刚行同构，列中心天然对齐
+         （GridLayout 的 columnSpec weight 在 overlay 的 AT_MOST measure 下不可靠，已弃用） ===== -->
+    <LinearLayout
+        android:id="@+id/grid_apps"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical" />
+
+    <!-- ===== 底部：三大金刚（F4，Phase 2 已接入；Q1 选项 c 不设第四格） =====
+         注意：按钮 44dp 仅为默认值，PanelController 会按宫格格子尺寸动态覆盖（F6 短边换算） -->
+    <LinearLayout
+        android:id="@+id/ll_nav_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal">
+
+        <!-- 返回 -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageButton
+                android:id="@+id/btn_nav_back"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_nav_key"
+                android:contentDescription="@string/nav_back"
+                android:padding="9dp"
+                android:src="@drawable/ic_nav_back" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/nav_back"
+                android:textColor="@color/text_on_panel_dim"
+                android:textSize="@dimen/nav_label_text" />
+        </LinearLayout>
+
+        <!-- 主页 -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageButton
+                android:id="@+id/btn_nav_home"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_nav_key"
+                android:contentDescription="@string/nav_home"
+                android:padding="9dp"
+                android:src="@drawable/ic_nav_home" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/nav_home"
+                android:textColor="@color/text_on_panel_dim"
+                android:textSize="@dimen/nav_label_text" />
+        </LinearLayout>
+
+        <!-- 多任务/最近（Phase 2 亦是任务管理器默认形态，F5） -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageButton
+                android:id="@+id/btn_nav_recents"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_nav_key"
+                android:contentDescription="@string/nav_recents"
+                android:padding="9dp"
+                android:src="@drawable/ic_nav_recents" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/nav_recents"
+                android:textColor="@color/text_on_panel_dim"
+                android:textSize="@dimen/nav_label_text" />
+        </LinearLayout>
+
+        <!-- Q1 选项 c（oeiskd 实证）：任务管理器=多任务概览屏，不设独立第四格 -->
+    </LinearLayout>
+</LinearLayout>

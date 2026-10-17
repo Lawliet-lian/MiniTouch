@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 应用 -->
+    <string name="app_name">MiniTouch</string>
+    <string name="title_settings">设置</string>
+
+    <!-- 前台通知（F7，低打扰） -->
+    <string name="notif_channel_name">悬浮球常驻服务</string>
+    <string name="notif_title">悬浮球运行中</string>
+    <string name="notif_text_running">点击球展开面板 · 长按进入设置</string>
+
+    <!-- 悬浮球 -->
+    <string name="ball_desc">悬浮球</string>
+
+    <!-- 面板（§7.1） -->
+    <string name="panel_empty_hint">尚未配置常用程序，长按球进入设置添加</string>
+    <string name="btn_close_panel">收起面板</string>
+    <string name="nav_back">返回</string>
+    <string name="nav_home">主页</string>
+    <string name="nav_recents">多任务</string>
+
+    <!-- Toast 文案（F3/F4） -->
+    <string name="toast_launch_failed">无法启动该应用（可能已卸载或被系统停用）</string>
+    <string name="toast_a11y_needed">开启无障碍服务后才能使用返回/主页/多任务，已为你跳转设置</string>
+    <string name="toast_ball_already_running">悬浮球已在运行中</string>
+    <string name="toast_ball_need_overlay">请先授予悬浮窗权限再启动</string>
+    <string name="toast_ball_params_reset">悬浮球参数已恢复默认</string>
+    <string name="toast_ball_hidden">悬浮球已隐藏，可在设置页或引导页重新启动</string>
+    <string name="toast_ball_not_running">悬浮球未在运行</string>
+
+    <!-- 权限状态（F8/引导页） -->
+    <string name="status_overlay_granted">悬浮窗：已开启 ✓</string>
+    <string name="status_overlay_denied">悬浮窗：未开启，需手动授权</string>
+    <string name="status_overlay_no_settings_entry">悬浮窗：车机缺少授权页，请用 ADB appops 授权（文档 §8-V3）</string>
+    <string name="status_a11y_on_phase2">无障碍：已开启 ✓</string>
+    <string name="status_a11y_off_phase2">无障碍：未开启，三大金刚（返回/主页/多任务）需要它</string>
+
+    <!-- 权限引导页 -->
+    <string name="guide_desc">本应用无广告、不联网，仅需以下手动权限即可常驻车机桌面。</string>
+    <string name="guide_overlay_desc">第 1 步：授予"显示在其他应用上层"权限，悬浮球才能出现。</string>
+    <string name="guide_a11y_desc">第 2 步（可选）：授予无障碍权限，即可在面板底部使用三大金刚（返回/主页/多任务）。</string>
+    <string name="btn_grant_overlay">去授予悬浮窗权限</string>
+    <string name="btn_start_ball">启动悬浮球</string>
+    <string name="btn_hide_ball">隐藏悬浮球</string>
+    <string name="btn_open_settings">打开设置页</string>
+    <string name="btn_open_a11y">打开系统无障碍设置</string>
+
+    <!-- 设置页（F8） -->
+    <string name="settings_section_perms">权限状态</string>
+    <string name="settings_section_ball">悬浮球参数</string>
+    <string name="settings_ball_size">球大小（按屏幕短边比例）</string>
+    <string name="settings_ball_alpha">活跃态透明度</string>
+    <string name="settings_section_apps">常用程序（已选置顶，序号即面板宫格顺序）</string>
+    <string name="settings_favorite_count">已选 %1$d / %2$d · 点击整行勾选/取消，按住 ≡ 拖动调整顺序</string>
+    <string name="settings_drag_handle_desc">拖动调整顺序</string>
+    <string name="settings_favorite_limit_reached">已达到常用程序数量上限</string>
+    <string name="btn_go_permission">去系统设置</string>
+    <string name="btn_reset_ball_params">恢复默认参数</string>
+
+    <!-- 无障碍服务（Phase 2） -->
+    <string name="a11y_service_name">MiniTouch</string>
+    <string name="a11y_service_desc">用于执行返回、主页、多任务三个系统全局动作，不读取任何窗口内容。</string>
+</resources>

@@ -1,0 +1,19 @@
+// 工程级 settings.gradle
+// MiniTouch —— 车机悬浮球迷你版（对应设计文档 §3.4 工程基线）
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "MiniTouch"
+include ':app'

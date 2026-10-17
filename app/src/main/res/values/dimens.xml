@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 静态尺寸；球/宫格等动态尺寸在代码中按短边换算（F6） -->
+    <dimen name="panel_padding">12dp</dimen>
+    <dimen name="panel_radius">16dp</dimen>
+    <dimen name="panel_title_text">14sp</dimen>
+    <dimen name="nav_icon_size">26dp</dimen>
+    <dimen name="nav_label_text">11sp</dimen>
+    <dimen name="settings_section_text">15sp</dimen>
+    <dimen name="app_icon_size">40dp</dimen>
+</resources>

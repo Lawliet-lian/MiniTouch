@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?><!-- 自适应图标前景：悬浮球图形（自绘，N4） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 图形控制在中心 66% 安全区内：外圆半径 5（24 画布下约占 42%） -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M12,7a5,5 0 1,0 0,10a5,5 0 1,0 0,-10zM12,8.8a3.2,3.2 0 1,1 0,6.4a3.2,3.2 0 1,1 0,-6.4z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,10.9a1.1,1.1 0 1,0 0,2.2a1.1,1.1 0 1,0 0,-2.2z" />
+</vector>

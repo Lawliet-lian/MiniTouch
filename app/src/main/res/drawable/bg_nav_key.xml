@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  三大金刚键矩形键帽（§7.1 下排）：
+  常态浅底形成"按键"轮廓，按下明显提亮，给出触摸反馈（用户要求）。
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/nav_key_bg_pressed" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/nav_key_bg" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+</selector>
