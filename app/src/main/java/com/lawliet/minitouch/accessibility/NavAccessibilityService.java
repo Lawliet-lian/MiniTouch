@@ -13,8 +13,8 @@ import android.view.accessibility.AccessibilityEvent;
  * 三大金刚无障碍服务（§4.1 / F4 —— Phase 2 才接入面板交互，当前仅留桩）。
  *
  * 设计（§4.2）：静态单例持有自身引用，FloatingBallService/PanelController 点击金刚格时
- * 通过静态方法调用 performGlobalAction(...)；实例为空说明服务未开启/被回收，
- * 由调用方引导跳转 ACTION_ACCESSIBILITY_SETTINGS（§5-F4）。
+ * 通过静态方法调用 performGlobalAction(...)；实例为空时需另外检查启用状态，
+ * 区分尚未授权与等待系统连接服务。
  *
  * 车机若无无障碍设置入口，可按 §8-V1 用 ADB 预授权：
  *   adb shell settings put secure enabled_accessibility_services \
@@ -70,22 +70,26 @@ public class NavAccessibilityService extends AccessibilityService {
      * 用于设置页/引导页的"无障碍：已开/未开"状态卡片（F8）。
      */
     public static boolean isEnabledInSettings(Context context) {
-        String expected = new ComponentName(context, NavAccessibilityService.class)
-                .flattenToShortString();
+        ComponentName expected = new ComponentName(context, NavAccessibilityService.class);
+        if (Settings.Secure.getInt(context.getContentResolver(),
+                Settings.Secure.ACCESSIBILITY_ENABLED, 0) != 1) {
+            return false;
+        }
         String enabled = Settings.Secure.getString(context.getContentResolver(),
                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
         if (TextUtils.isEmpty(enabled)) {
             return false;
         }
         for (String s : enabled.split(":")) {
-            if (s.equalsIgnoreCase(expected)) {
+            // 系统可能保存完整类名，也可能保存以点开头的缩写类名。
+            if (expected.equals(ComponentName.unflattenFromString(s))) {
                 return true;
             }
         }
         return false;
     }
 
-    /** @return true=动作已执行；false=无障碍未开启，调用方应引导用户开启（§5-F4） */
+    /** @return 系统是否接受动作；false 也可能是服务未连接或系统无法执行。 */
     public static boolean performBack() {
         return performGlobal(GLOBAL_ACTION_BACK);
     }

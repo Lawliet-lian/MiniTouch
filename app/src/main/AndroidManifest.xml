@@ -8,6 +8,7 @@
     <!-- ===== §6.1 申请的最小权限集 ===== -->
     <!-- 悬浮球/面板 Overlay（手动授权，Phase 1） -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
     <!-- 开机自启（F7） -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- 前台服务保活（F7，安卓 8+ 必需） -->

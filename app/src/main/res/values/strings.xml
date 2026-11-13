@@ -22,6 +22,8 @@
     <!-- Toast 文案（F3/F4） -->
     <string name="toast_launch_failed">无法启动该应用（可能已卸载或被系统停用）</string>
     <string name="toast_a11y_needed">开启无障碍服务后才能使用返回/主页/多任务，已为你跳转设置</string>
+    <string name="toast_a11y_connecting">无障碍已开启，正在等待系统连接服务，请稍后再试</string>
+    <string name="toast_nav_action_failed">系统暂时无法执行此操作，请稍后再试</string>
     <string name="toast_ball_already_running">悬浮球已在运行中</string>
     <string name="toast_ball_need_overlay">请先授予悬浮窗权限再启动</string>
     <string name="toast_ball_params_reset">悬浮球参数已恢复默认</string>
@@ -63,4 +65,7 @@
     <!-- 无障碍服务（Phase 2） -->
     <string name="a11y_service_name">MiniTouch</string>
     <string name="a11y_service_desc">用于执行返回、主页、多任务三个系统全局动作，不读取任何窗口内容。</string>
+    <string name="settings_a11y_recovery">自动恢复无障碍</string>
+    <string name="recovery_available">已获得恢复权限。每次开机最多恢复 3 次，间隔至少 30 秒。手动关闭无障碍前，请先关闭此开关。</string>
+    <string name="recovery_unavailable">需要通过电脑完成一次 ADB 授权后才能自动恢复。</string>
 </resources>

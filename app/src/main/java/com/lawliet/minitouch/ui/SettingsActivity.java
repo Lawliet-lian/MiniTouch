@@ -50,6 +50,10 @@ public class SettingsActivity extends AppCompatActivity {
         setupAppList();
         setupBallParams();
         setupQuickSwitch();
+        SwitchCompat recovery = findViewById(R.id.sw_a11y_recovery);
+        recovery.setChecked(prefs.isAccessibilityRecoveryEnabled());
+        recovery.setOnCheckedChangeListener((button, checked) ->
+                prefs.setAccessibilityRecoveryEnabled(checked));
         setupBallActions();
         setupPermissionCard();
     }
@@ -210,6 +214,16 @@ public class SettingsActivity extends AppCompatActivity {
         findViewById(R.id.btn_a11y_go).setOnClickListener(v ->
                 com.lawliet.minitouch.accessibility.NavAccessibilityService
                         .openAccessibilitySettings(this));
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        setupPermissionCard();
+        ((TextView) findViewById(R.id.tv_a11y_recovery)).setText(
+                checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS)
+                        == android.content.pm.PackageManager.PERMISSION_GRANTED
+                        ? R.string.recovery_available : R.string.recovery_unavailable);
     }
 
     /** SeekBar 只关心进度变化的简化监听 */

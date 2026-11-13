@@ -52,6 +52,17 @@
                 android:text="@string/btn_open_a11y" />
         </LinearLayout>
 
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/sw_a11y_recovery"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_a11y_recovery" />
+        <TextView
+            android:id="@+id/tv_a11y_recovery"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="12sp" />
+
         <!-- ===== 球参数（F8：大小/透明度滑块） ===== -->
         <TextView
             android:layout_width="wrap_content"

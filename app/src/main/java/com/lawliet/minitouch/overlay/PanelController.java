@@ -89,6 +89,9 @@ public class PanelController {
     private WindowManager.LayoutParams rootLp;
     private LinearLayout panel;
     private boolean visible;
+    private int anchorScreenX;
+    private int anchorScreenY;
+    private boolean expandLeft;
 
     // 宫格容器引用：每次 show() 时按最新 prefs 重建（修复：设置页勾选后面板不刷新）
     private LinearLayout appGrid;
@@ -127,6 +130,9 @@ public class PanelController {
         FrameLayout.LayoutParams flp = new FrameLayout.LayoutParams(
                 panelWidth, ViewGroup.LayoutParams.WRAP_CONTENT);
         root.addView(panel, flp);
+
+        root.addOnLayoutChangeListener((v, left, top, right, bottom,
+                                        oldLeft, oldTop, oldRight, oldBottom) -> positionPanel());
 
         bindPanelViews(cellSize);
         // 初始不可见：root 未加入 WindowManager，show() 时再 addView
@@ -325,26 +331,36 @@ public class PanelController {
         if (appGrid != null) {
             populateAppGrid(appGrid, gridCellSize);
         }
-        // 先 measure 拿到面板实际宽高，再计算落点
-        panel.measure(View.MeasureSpec.makeMeasureSpec(screenW, View.MeasureSpec.AT_MOST),
-                View.MeasureSpec.makeMeasureSpec(screenH, View.MeasureSpec.AT_MOST));
-        int pw = panel.getMeasuredWidth();
-        int ph = panel.getMeasuredHeight();
-
-        int x = showToLeft ? anchorX - pw - dp(6) : anchorX + dp(6);
-        int y = anchorY - ph / 2;
-        // 越界夹取（R4：面板溢出兜底；TODO(F6)：方向变化时整体重排）
-        x = clamp(dp(4), x, screenW - pw - dp(4));
-        y = clamp(dp(4), y, screenH - ph - dp(4));
-
-        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) panel.getLayoutParams();
-        lp.gravity = Gravity.TOP | Gravity.START;
-        lp.setMargins(x, y, 0, 0);
-        panel.setLayoutParams(lp);
-
+        anchorScreenX = anchorX;
+        anchorScreenY = anchorY;
+        expandLeft = showToLeft;
+        panel.setVisibility(View.INVISIBLE);
         windowManager.addView(root, rootLp);
         visible = true;
-        Log.d(TAG, "panel shown at (" + x + "," + y + ") size (" + pw + "x" + ph + ")");
+    }
+
+    private void positionPanel() {
+        int width = root.getWidth();
+        int height = root.getHeight();
+        if (width <= 0 || height <= 0) return;
+
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) panel.getLayoutParams();
+        panel.measure(View.MeasureSpec.makeMeasureSpec(Math.min(lp.width, width), View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        int pw = panel.getMeasuredWidth();
+        int ph = panel.getMeasuredHeight();
+        int[] location = new int[2];
+        root.getLocationOnScreen(location);
+        int anchorX = anchorScreenX - location[0];
+        int anchorY = anchorScreenY - location[1];
+        int x = clamp(dp(4), expandLeft ? anchorX - pw - dp(6) : anchorX + dp(6), width - pw - dp(4));
+        int y = clamp(dp(4), anchorY - ph / 2, height - ph - dp(4));
+        if (lp.leftMargin != x || lp.topMargin != y) {
+            lp.gravity = Gravity.TOP | Gravity.START;
+            lp.setMargins(x, y, 0, 0);
+            panel.setLayoutParams(lp);
+        }
+        panel.setVisibility(View.VISIBLE);
     }
 
     /** 收起面板并从 WindowManager 移除全屏 root（避免长期拦截全屏触摸） */

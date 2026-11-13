@@ -92,6 +92,8 @@ public class FloatingBallService extends Service implements PanelController.Call
     private boolean longPressConsumed;
 
     // ---- 空闲隐藏 / 防烧屏 ----
+    private com.lawliet.minitouch.accessibility.AccessibilityRecovery accessibilityRecovery;
+
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Runnable idleHideTask = this::hideBallToIdle;
     /** 闪切模式下的长按定时器：到点即展开面板（普通模式不启用，仍走 GestureDetector 默认长按进设置） */
@@ -176,6 +178,9 @@ public class FloatingBallService extends Service implements PanelController.Call
         createNotificationChannel();
         startForeground(NOTIFICATION_ID, buildNotification());
 
+        accessibilityRecovery = new com.lawliet.minitouch.accessibility.AccessibilityRecovery(this);
+        accessibilityRecovery.start();
+
         computeSizes();
         createBall();
         panelController = new PanelController(this, windowManager, this);
@@ -219,6 +224,7 @@ public class FloatingBallService extends Service implements PanelController.Call
     @Override
     public void onDestroy() {
         sRunning = false;
+        if (accessibilityRecovery != null) accessibilityRecovery.stop();
         try {
             unregisterReceiver(configChangeReceiver);
         } catch (Exception ignored) {
@@ -559,9 +565,7 @@ public class FloatingBallService extends Service implements PanelController.Call
         } else if (NavAccessibilityService.performHome()) {
             quickSwitchToApp = true; // 已回主页，下次单击切回 App
         } else {
-            // 回主页依赖无障碍服务（三大金刚同源）
-            Toast.makeText(this, R.string.toast_a11y_needed, Toast.LENGTH_LONG).show();
-            NavAccessibilityService.openAccessibilitySettings(this);
+            handleNavigationFailure();
         }
     }
 
@@ -584,8 +588,10 @@ public class FloatingBallService extends Service implements PanelController.Call
         int screenW = getScreenWidth();
         int screenH = getScreenHeight();
         boolean showToLeft = (ballLp.x + ballSize / 2) > screenW / 2; // 球在右半屏 → 面板向左展开
-        int anchorX = showToLeft ? ballLp.x : ballLp.x + ballSize;
-        int anchorY = ballLp.y + ballSize / 2;
+        int[] ballLocation = new int[2];
+        ballView.getLocationOnScreen(ballLocation);
+        int anchorX = showToLeft ? ballLocation[0] : ballLocation[0] + ballSize;
+        int anchorY = ballLocation[1] + ballSize / 2;
         panelController.show(anchorX, anchorY, screenW, screenH, showToLeft);
         panelShowing = true;
     }
@@ -650,7 +656,17 @@ public class FloatingBallService extends Service implements PanelController.Call
                 handled = false;
         }
         if (!handled) {
-            // 无障碍未开启或被系统回收（§5-F4 / §10-R2）：提示并跳转系统无障碍设置引导开启。
+            handleNavigationFailure();
+        }
+    }
+
+    private void handleNavigationFailure() {
+        if (NavAccessibilityService.isReady()) {
+            Toast.makeText(this, R.string.toast_nav_action_failed, Toast.LENGTH_SHORT).show();
+        } else if (NavAccessibilityService.isEnabledInSettings(this)) {
+            // 已启用时由系统绑定服务；连接成功后下次点击即可执行。
+            Toast.makeText(this, R.string.toast_a11y_connecting, Toast.LENGTH_LONG).show();
+        } else {
             Toast.makeText(this, R.string.toast_a11y_needed, Toast.LENGTH_LONG).show();
             NavAccessibilityService.openAccessibilitySettings(this);
         }

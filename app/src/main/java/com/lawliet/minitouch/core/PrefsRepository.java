@@ -109,6 +109,14 @@ public final class PrefsRepository {
         sp.edit().putBoolean(KEY_QUICK_SWITCH_MODE, enabled).apply();
     }
 
+    public boolean isAccessibilityRecoveryEnabled() {
+        return sp.getBoolean("accessibility_recovery", true);
+    }
+
+    public void setAccessibilityRecoveryEnabled(boolean enabled) {
+        sp.edit().putBoolean("accessibility_recovery", enabled).apply();
+    }
+
     // ==================== 球参数（F1/F8） ====================
 
     public float getBallSizePercent() {
