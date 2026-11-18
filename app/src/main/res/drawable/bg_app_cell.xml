@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?><!--
   宫格 App 格的圆形半透明底（§7.1 上排宫格）：
-  常态 18% 白，按下提亮到 35%，提供触摸反馈（与金刚键同思路）。
+  常态 10% 白，按下提亮到 35%，提供触摸反馈。
 -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_pressed="true">

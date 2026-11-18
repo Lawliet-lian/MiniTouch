@@ -29,7 +29,8 @@
     <string name="toast_ball_params_reset">悬浮球参数已恢复默认</string>
     <string name="toast_ball_hidden">悬浮球已隐藏，可在设置页或引导页重新启动</string>
     <string name="toast_ball_not_running">悬浮球未在运行</string>
-    <string name="toast_quick_switch_no_app">闪切模式需要至少勾选 1 个常用程序，请长按球进入设置添加</string>
+    <string name="toast_quick_switch_no_app">闪切模式需要至少勾选 1 个常用程序，请长按球打开面板后点齿轮进入设置添加</string>
+    <string name="toast_double_tap_no_second_app">双击打开第二个常用程序需要至少勾选 2 个常用程序，请在设置页添加</string>
 
     <!-- 权限状态（F8/引导页） -->
     <string name="status_overlay_granted">悬浮窗：已开启 ✓</string>
@@ -54,7 +55,17 @@
     <string name="settings_ball_size">球大小（按屏幕短边比例）</string>
     <string name="settings_ball_alpha">活跃态透明度</string>
     <string name="settings_quick_switch">闪切模式</string>
-    <string name="settings_quick_switch_desc">开启后单击悬浮球不再展开快捷面板，而是在序号第一的常用程序和主页之间来回快速切换；长按球 1.5 秒可展开面板（含设置入口与三大金刚），回主页依赖无障碍服务</string>
+    <string name="settings_quick_switch_desc">开启后单击悬浮球不再展开快捷面板，而是在序号第一的常用程序和主页之间来回快速切换；长按球 1 秒可展开面板（含设置入口与三大金刚），回主页依赖无障碍服务</string>
+    <string name="settings_double_tap">双击悬浮球</string>
+    <string name="settings_double_tap_desc">两次点击间隔在约 0.3 秒内算双击，双击不会触发单击；选「无」时单击抬手即响应，不再等待双击判定。返回/主页/多任务依赖无障碍服务</string>
+    <!-- 双击动作下拉项：下标即 PrefsRepository.DOUBLE_TAP_* 取值，顺序必须与常量一致 -->
+    <string-array name="double_tap_action_entries">
+        <item>无</item>
+        <item>返回</item>
+        <item>主页</item>
+        <item>多任务</item>
+        <item>打开第二个常用程序</item>
+    </string-array>
     <string name="settings_section_apps">常用程序（已选置顶，序号即面板宫格顺序）</string>
     <string name="settings_favorite_count">已选 %1$d / %2$d · 点击整行勾选/取消，按住 ≡ 拖动调整顺序</string>
     <string name="settings_drag_handle_desc">拖动调整顺序</string>
@@ -64,7 +75,7 @@
 
     <!-- 无障碍服务（Phase 2） -->
     <string name="a11y_service_name">MiniTouch</string>
-    <string name="a11y_service_desc">用于执行返回、主页、多任务三个系统全局动作，不读取任何窗口内容。</string>
+    <string name="a11y_service_desc">用于执行返回、主页和多任务，并在点击快捷入口时读取焦点窗口的应用包名，避免重复启动前台应用。</string>
     <string name="settings_a11y_recovery">自动恢复无障碍</string>
     <string name="recovery_available">已获得恢复权限。每次开机最多恢复 3 次，间隔至少 30 秒。手动关闭无障碍前，请先关闭此开关。</string>
     <string name="recovery_unavailable">需要通过电脑完成一次 ADB 授权后才能自动恢复。</string>

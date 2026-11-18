@@ -8,9 +8,13 @@ import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityWindowInfo;
+
+import java.util.List;
 
 /**
- * 三大金刚无障碍服务（§4.1 / F4 —— Phase 2 才接入面板交互，当前仅留桩）。
+ * 执行全局导航动作，并为快捷面板查询当前前台应用。
  *
  * 设计（§4.2）：静态单例持有自身引用，FloatingBallService/PanelController 点击金刚格时
  * 通过静态方法调用 performGlobalAction(...)；实例为空时需另外检查启用状态，
@@ -32,12 +36,11 @@ public class NavAccessibilityService extends AccessibilityService {
         super.onServiceConnected();
         sInstance = this;
         Log.i(TAG, "accessibility service connected");
-        // 本服务只需全局动作能力，onAccessibilityEvent 无需做任何事（§5-F4）。
     }
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        // 有意留空：不需要监听事件
+        // 点击快捷入口时查询焦点窗口。
     }
 
     @Override
@@ -63,6 +66,37 @@ public class NavAccessibilityService extends AccessibilityService {
     /** 无障碍服务实例是否活跃（能执行全局动作） */
     public static boolean isReady() {
         return sInstance != null;
+    }
+
+    /** 只比较输入焦点所在应用窗口的包名，避免把悬浮窗或最近触摸的窗口当成前台应用。 */
+    @SuppressWarnings("deprecation") // Android 9 仍使用可回收的无障碍窗口和节点对象。
+    public static boolean isForegroundApp(String packageName) {
+        NavAccessibilityService service = sInstance;
+        if (service == null) {
+            return false;
+        }
+        List<AccessibilityWindowInfo> windows = service.getWindows();
+        try {
+            for (AccessibilityWindowInfo window : windows) {
+                if (window.getType() != AccessibilityWindowInfo.TYPE_APPLICATION || !window.isFocused()) {
+                    continue;
+                }
+                AccessibilityNodeInfo root = window.getRoot();
+                if (root == null) {
+                    return false;
+                }
+                try {
+                    return TextUtils.equals(packageName, root.getPackageName());
+                } finally {
+                    root.recycle();
+                }
+            }
+            return false;
+        } finally {
+            for (AccessibilityWindowInfo window : windows) {
+                window.recycle();
+            }
+        }
     }
 
     /**

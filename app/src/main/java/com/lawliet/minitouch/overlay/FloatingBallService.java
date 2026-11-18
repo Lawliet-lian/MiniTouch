@@ -21,6 +21,7 @@ import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.Toast;
@@ -39,7 +40,7 @@ import java.util.List;
  *
  * 职责：
  * - WindowManager Overlay 悬浮球：拖拽、松手贴边、N 秒无操作半透明隐藏、防烧屏微调（F1/§5-F1）；
- * - 短按球展开/收起面板，长按球进设置页（§7.3）；
+ * - 短按球展开/收起面板，长按球进设置页（§7.3）；双击球执行设置页所选动作（默认返回）；
  * - 前台服务 + 低打扰通知提升车机存活率，被杀后经 ReviveScheduler 复活（F7/§4.3）；
  * - 横屏尺寸按屏幕短边计算（F6）。
  *
@@ -59,8 +60,8 @@ public class FloatingBallService extends Service implements PanelController.Call
     /** 防烧屏微调周期：隐藏态每分钟 1px（§5-F1） */
     private static final long ANTI_BURN_PERIOD_MS = 60_000L;
     /** 闪切模式下长按球打开面板的时长：GestureDetector 的长按阈值是系统固定的（约 400ms），无法满足自定义需求，故手写定时器；
-     * 1.5s 既能与正常点击（几百毫秒）拉开差距防误触，又不像 3s 那样手感偏久 */
-    private static final long LONG_PRESS_OPEN_PANEL_MS = 1500L;
+     * 1s 既能与正常点击（几百毫秒）拉开差距防误触，又不像 1.5s/3s 那样手感偏久 */
+    private static final long LONG_PRESS_OPEN_PANEL_MS = 1000L;
     /** 长按消费标志的延迟清除：须晚于 onSingleTapConfirmed 的确认延迟（约 300ms），防残留标志误吞下一次单击 */
     private static final long LONG_PRESS_FLAG_CLEAR_DELAY_MS = 600L;
 
@@ -72,6 +73,14 @@ public class FloatingBallService extends Service implements PanelController.Call
     private ImageView ballView;
     private WindowManager.LayoutParams ballLp;
     private GestureDetector gestureDetector;
+    /** 球的手势监听（保留引用：双击动作切换时需把它重新挂回/摘下双击监听） */
+    private BallGestureListener ballGestureListener;
+    /**
+     * 是否启用双击识别：双击动作为「无」时关闭。
+     * 开启时单击须等约 300ms 确认不是双击（onSingleTapConfirmed）；
+     * 关闭时摘掉双击监听，单击抬手即响应（onSingleTapUp），连点两下也各算一次单击。
+     */
+    private boolean doubleTapEnabled;
     private int ballSize;          // 球直径 px（按短边计算，F6）
     private int touchSlop;
     private float downRawX, downRawY;
@@ -148,6 +157,11 @@ public class FloatingBallService extends Service implements PanelController.Call
                             closePanel();
                         }
                     });
+                    return;
+                }
+                // 双击动作变化：切换手势识别方式（「无」时单击不再等双击判定）
+                if (PrefsRepository.KEY_DOUBLE_TAP_ACTION.equals(key)) {
+                    mainHandler.post(this::applyDoubleTapSetting);
                     return;
                 }
                 for (String k : BALL_PREF_KEYS) {
@@ -342,7 +356,9 @@ public class FloatingBallService extends Service implements PanelController.Call
         ballLp.y = prefs.getBallY(defaultY);
         clampBallPosition();
 
-        gestureDetector = new GestureDetector(this, new BallGestureListener());
+        ballGestureListener = new BallGestureListener();
+        gestureDetector = new GestureDetector(this, ballGestureListener);
+        applyDoubleTapSetting();
         ballView.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -375,7 +391,7 @@ public class FloatingBallService extends Service implements PanelController.Call
                 downX = ballLp.x;
                 downY = ballLp.y;
                 dragging = false;
-                // 闪切模式：按下即起长按定时器（1.5s），到点展开面板；普通模式不启用，维持原“长按进设置”
+                // 闪切模式：按下即起长按定时器（1s），到点展开面板；普通模式不启用，维持原“长按进设置”
                 mainHandler.removeCallbacks(longPressOpenPanelTask);
                 mainHandler.removeCallbacks(clearLongPressFlagTask);
                 longPressConsumed = false;
@@ -485,29 +501,49 @@ public class FloatingBallService extends Service implements PanelController.Call
 
     // ==================== 手势（§7.3 交互） ====================
 
-    /** 球的单击/长按监听：短按展开/收起面板，长按进设置页 */
+    /** 球的单击/双击/长按监听：短按展开/收起面板（或闪切），双击执行所选动作，长按进设置页 */
     private class BallGestureListener extends GestureDetector.SimpleOnGestureListener {
         @Override
         public boolean onDown(MotionEvent e) {
             return true; // 必须返回 true 才能收到后续单击/长按
         }
 
+        /** 双击关闭时走这里：抬手即算单击，不等双击判定（长按后的抬手 GestureDetector 不会回调此方法） */
+        @Override
+        public boolean onSingleTapUp(MotionEvent e) {
+            if (!doubleTapEnabled) {
+                handleSingleTap();
+            }
+            return true;
+        }
+
+        /** 双击开启时走这里：约 300ms 内未出现第二次按下才确认为单击，双击时不会回调 */
         @Override
         public boolean onSingleTapConfirmed(MotionEvent e) {
+            if (doubleTapEnabled) {
+                handleSingleTap();
+            }
+            return true;
+        }
+
+        /**
+         * 双击：在第二次抬手时触发（而非 onDoubleTap 的第二次按下），
+         * 以便排除「第二下按住拖动」和「第二下按住不放变成长按」两种情况。
+         * 注意 onTouch 中 GestureDetector 先于 handleDrag 执行，此时 dragging 仍是本次手势的真实状态。
+         */
+        @Override
+        public boolean onDoubleTapEvent(MotionEvent e) {
+            if (e.getActionMasked() != MotionEvent.ACTION_UP) {
+                return true;
+            }
             if (dragging || longPressConsumed) {
-                return true; // 长按已展开面板，本次抬手不再当单击
+                return true; // 第二下变成了拖动，或闪切模式下已长按展开面板
+            }
+            if (e.getEventTime() - e.getDownTime() >= ViewConfiguration.getLongPressTimeout()) {
+                return true; // 第二下按住超过系统长按阈值：普通模式已走长按进设置，不再当双击
             }
             restoreBallAlpha();
-            // 闪切模式：不默认展开 9 宫格面板（长按 1.5 秒才开），单击即在首项 App 与主页间来回切换
-            if (prefs.isQuickSwitchMode()) {
-                if (panelShowing) {
-                    closePanel(); // 长按打开的面板：单击球先收起（不闪切，防误触切走界面）
-                } else {
-                    quickSwitchToggle();
-                }
-            } else {
-                togglePanel();
-            }
+            performDoubleTapAction();
             return true;
         }
 
@@ -516,7 +552,7 @@ public class FloatingBallService extends Service implements PanelController.Call
             if (dragging) {
                 return;
             }
-            // 闪切模式：长按语义改为由定时器（1.5s）展开面板，忽略 GestureDetector 默认长按（约 400ms 即触发）；
+            // 闪切模式：长按语义改为由定时器（1s）展开面板，忽略 GestureDetector 默认长按（约 400ms 即触发）；
             // 若定时器已触发过则直接吞掉
             if (prefs.isQuickSwitchMode()) {
                 return;
@@ -525,7 +561,80 @@ public class FloatingBallService extends Service implements PanelController.Call
         }
     }
 
-    /** 长按定时器（1.5s）到点（仅闪切模式）：展开面板并置消费标志，抑制后续单击/默认长按 */
+    /** 单击球（两种识别路径共用）：闪切模式在首项 App 与主页间切换，普通模式开合面板 */
+    private void handleSingleTap() {
+        if (dragging || longPressConsumed) {
+            return; // 长按已展开面板，本次抬手不再当单击
+        }
+        restoreBallAlpha();
+        // 闪切模式：不默认展开 9 宫格面板（长按 1 秒才开），单击即在首项 App 与主页间来回切换
+        if (prefs.isQuickSwitchMode()) {
+            if (panelShowing) {
+                closePanel(); // 长按打开的面板：单击球先收起（不闪切，防误触切走界面）
+            } else {
+                quickSwitchToggle();
+            }
+        } else {
+            togglePanel();
+        }
+    }
+
+    /**
+     * 按当前双击动作配置挂上/摘下双击监听。
+     * 「无」时摘掉：GestureDetector 不再做双击判定，单击改由 onSingleTapUp 立即响应。
+     */
+    private void applyDoubleTapSetting() {
+        doubleTapEnabled = prefs.getDoubleTapAction() != PrefsRepository.DOUBLE_TAP_NONE;
+        if (gestureDetector != null) {
+            gestureDetector.setOnDoubleTapListener(doubleTapEnabled ? ballGestureListener : null);
+        }
+    }
+
+    /**
+     * 双击球：执行设置页所选动作。返回/主页/多任务直接复用面板按钮的处理链路
+     * （含先收起面板、无障碍未开启时的提示与跳转），行为与点面板上对应按钮完全一致。
+     */
+    private void performDoubleTapAction() {
+        switch (prefs.getDoubleTapAction()) {
+            case PrefsRepository.DOUBLE_TAP_BACK:
+                onNavActionClicked(PanelController.NAV_BACK);
+                break;
+            case PrefsRepository.DOUBLE_TAP_HOME:
+                onNavActionClicked(PanelController.NAV_HOME);
+                break;
+            case PrefsRepository.DOUBLE_TAP_RECENTS:
+                onNavActionClicked(PanelController.NAV_RECENTS);
+                break;
+            case PrefsRepository.DOUBLE_TAP_SECOND_APP:
+                launchSecondFavorite();
+                break;
+            default:
+                break; // DOUBLE_TAP_NONE：双击监听已摘掉，正常不会走到这里
+        }
+    }
+
+    /** 双击「打开第二个常用程序」：每次重读列表使排序即时生效；不足 2 个时节流提示 */
+    private void launchSecondFavorite() {
+        List<String> favorites = prefs.getFavoritePkgs();
+        if (favorites.size() < 2) {
+            // 与闪切共用同一个 toast 节流时间戳，避免连点刷屏
+            long now = System.currentTimeMillis();
+            if (now - lastQuickSwitchToastAt > QUICK_SWITCH_TOAST_GAP_MS) {
+                lastQuickSwitchToastAt = now;
+                Toast.makeText(this, R.string.toast_double_tap_no_second_app, Toast.LENGTH_SHORT).show();
+            }
+            return;
+        }
+        if (panelShowing) {
+            closePanel();
+        }
+        if (!appRepo.launch(favorites.get(1))) {
+            // 已卸载/被停用（§10-R7）
+            Toast.makeText(this, R.string.toast_launch_failed, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /** 长按定时器（1s）到点（仅闪切模式）：展开面板并置消费标志，抑制后续单击/默认长按 */
     private void onLongPressOpenPanelFired() {
         if (!prefs.isQuickSwitchMode()) {
             return; // 定时器挂载后用户中途关了开关，此处兜底忽略
@@ -616,6 +725,9 @@ public class FloatingBallService extends Service implements PanelController.Call
     @Override
     public void onAppCellClicked(String pkg) {
         closePanel();
+        if (NavAccessibilityService.isForegroundApp(pkg)) {
+            return;
+        }
         if (!appRepo.launch(pkg)) {
             // F3：拿不到 launch intent（已卸载/系统级 disable，§10-R7）→ toast 说明
             Toast.makeText(this, R.string.toast_launch_failed, Toast.LENGTH_SHORT).show();

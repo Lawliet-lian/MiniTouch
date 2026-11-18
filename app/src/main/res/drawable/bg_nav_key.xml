@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-  三大金刚键矩形键帽（§7.1 下排）：
+  面板按钮的圆角键帽：
   常态浅底形成"按键"轮廓，按下明显提亮，给出触摸反馈（用户要求）。
 -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">

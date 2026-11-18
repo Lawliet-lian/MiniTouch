@@ -1,4 +1,6 @@
-# MiniTouch：最近任务重复卡片一键去重 —— 执行方案
+# MiniTouch：最近任务重复卡片排查记录
+
+> 此方案已停止，以下保留实机排查和历史设计记录。
 
 > 给执行者（Codex）的完整上下文与决策清单。所有决策已定，按本文实现即可；
 > 文中标注「待核实」「Phase 0 核实」的地方，必须先在车机上取证，再按取证结果填参数，不得凭猜测硬编码。
@@ -249,16 +251,28 @@ public final class DedupePlanner {
 
 ## 6. 核实记录（Phase 0 完成后由执行者填写）
 
+取证时间：11-14，几何车机（Android 9，legacy Recents）。方式 A 调试转储 + `dumpsys activity recents` / `dumpsys accessibility` / `wm size`（均为只读）。
+
 | 项 | 实测值 |
 |---|---|
-| 窗口包名 | |
-| 卡片根节点类名 / ID | |
-| 标题节点 ID | |
-| 关闭按钮 ID / 描述 | |
-| 是否支持 ACTION_DISMISS | |
-| 最近一端的位置 / 划掉方向 | |
-| 是否需要滚动、下标来源 | |
-| 屏幕分辨率（`adb shell wm size`） | |
+| 窗口包名 | `com.android.systemui`（与 AOSP 一致） |
+| 卡片根节点类名 / ID | 类名 `android.widget.FrameLayout`、无 ID、clickable=true（不是 `TaskView`）；由「只含一个标题的最高祖先」规则识别，5 张卡片全部正确 |
+| 标题节点 ID | `com.android.systemui:id/title`，text 为应用标签（如 `Car Launcher`、`HKSettings`、`无障碍`）；被更近卡片盖住的标题 visible=false，但 text 仍可读 |
+| 关闭按钮 ID / 描述 | `com.android.systemui:id/dismiss_task`，desc「移除xxx。」；**visible=false、clickable=false，点不了** |
+| 是否支持 ACTION_DISMISS | **不支持**。卡片动作只有 CLICK、LONG_CLICK 和两个自定义动作（0x7f0a0033/0x7f0a0034，推测为分屏）；划掉只能靠水平滑动手势 |
+| 最近一端的位置 / 划掉方向 | 最近一端在**最下方**（最下一张 = recents #1）；卡片纵向层叠，越近越靠下且盖在上层，旧卡片只露出顶部一条（实测最窄 10px）。划掉方向待去重实测 |
+| 是否需要滚动、下标来源 | 需要：屏幕上只有 5 张，recents 共 19 张（不含桌面与 Recents 自身），6 张 AtcCarLauncher 空壳都在屏外。滚动容器是 `android.widget.ScrollView`（TaskStackView），刚打开时只提供 `SCROLL_BACKWARD`。卡片节点无 `CollectionItemInfo`。**滚动事件带真实序号**：`TYPE_VIEW_SCROLLED` 的 `fromIndex`/`toIndex` = 可见卡片中最旧/最近的 stack 序号（0 = 最旧），`itemCount` = 卡片总数，`contentDescription` = 最近一张可见卡片的标题；实测 `fromIndex=16、toIndex=20、itemCount=21`，与屏幕上 5 张卡片一致 |
+| 屏幕分辨率（`adb shell wm size`） | 1920x720，density 160 |
+
+补充结论：
+
+- **覆盖安装后的能力生效**：从无「读取窗口内容」能力的旧版本升级时，必须到系统无障碍设置里关闭再开启 MiniTouch 一次；之后 `dumpsys accessibility` 显示 `capabilities=33`（读取窗口内容 + 手势）。日常重启不受影响，仅在新增无障碍能力的升级时需要。
+- **滚动方向**：按 AOSP TaskStackView 源码，`SCROLL_BACKWARD` 移向更旧、`SCROLL_FORWARD` 移向更近。实测：刚打开时系统没有焦点任务，第一次 `SCROLL_BACKWARD` 只是对齐焦点（可见区间不变）；`SCROLL_FORWARD` 让卡片继续上移、`scrollY` 11400 → 11547，确认朝最近端。有焦点任务后 `SCROLL_BACKWARD` 是否逐张朝最旧端，由新版调试转储的逐步探测确认。
+- **可能的回绕**：无障碍滚动走焦点切换逻辑（AOSP 用取模计算下一个焦点），到尽头时可能绕回另一端；手指拖动走有边界的滚动器，不会绕回（用户实测）。两者路径不同，因此代码按「可能回绕」兜底：只在那一端还有没看到的卡片时才朝那一端滚，且每次滚动后检查序号区间是否与上一次相邻、方向正确，整段跳走即中止（`INDEX_JUMP`），一张不划。调试转储会滚到序号 0 后再多滚一步，用于实测是否回绕。
+- **手势落点**：原先取标题行中线，会落到更近的卡片上（例如划第一张 Car Launcher 实际会划到第二张）。已改为取卡片露出区域中线；露出不足 40px 时先用焦点滚动展开目标，展开失败即中止。
+- **已确认的可接受误伤**：两张 `Car Launcher` 分别是应用列表 AppGridActivity（#3）和本次开机的 AtcCarLauncher 活任务（#5），标题完全相同。打开过应用列表后，去重会划掉 AtcCarLauncher 活卡，用户已确认接受。
+- **已解决：同名空壳连续排列的对齐歧义**。已按 §5.2「优先使用真实下标」改为用滚动事件的序号定位，不再按标题重叠对齐：每次滚动后等待动作之后到达的新滚动事件，要求「可见卡片数 = 序号区间长度」且标题与已知序列逐项一致才算锚定；当前页第 i 张（最近→最旧）的 stack 序号为 `toIndex - i`，全局下标 g = `itemCount - 1 - stack`。划掉前核对目标序号在可见区间内、标题一致；划掉后核对卡片总数减 1、页面与「去掉目标后的序列」一致。
+- **仍待实测**：有焦点任务后的滚动步长与方向、尽头是否回绕、事件序号与 450ms 后读到的页面是否一致、划掉卡片是否触发滚动事件（不触发时代码会主动滚一步再核对）、兜底手势方向 `SWIPE_DIRECTION`。
 
 ---
 
@@ -283,9 +297,11 @@ export JAVA_HOME="$(jenv javahome)"   # 必须显式导出，否则可能用错 
 2. `[A, B, A, C, A]` → 返回 `[4, 2]`（保留下标 0）；
 3. null 或空白标题不参与去重；
 4. 归一化后相同（首尾空格、多个空格）视为同一标题；
-5. 分页对齐：`global=[A,B,C]`、`page=[B,C,D]` → `[A,B,C,D]`；
-6. 无重叠：`global=[A,B]`、`page=[C,D]` → `[A,B,C,D]`；
-7. 歧义对齐抛异常：例如 `global=[A,A]`、`page=[A,A,B]`，多个重叠长度都成立且结果不同。
+5. 按序号核对（`matchesAt`）：给定偏移逐项核对标题；越界或空页返回 false；同名卡片连续排列时位置由序号给定，不再歧义；
+6. 区间连续性（`isContinuous`）：首次锚定直接通过；朝最旧端滚时区间不变、后移一格、整段相邻都算连续，跳页或方向反了不连续；
+7. 回绕识别：在一端继续朝该端滚却整段跳到另一端，判为不连续。
+
+（原「分页对齐 / 歧义对齐」用例随 `align` 一并删除：已改用滚动事件的真实序号定位。）
 
 ### 7.3 车机验收（安装 APK 前需用户确认）
 

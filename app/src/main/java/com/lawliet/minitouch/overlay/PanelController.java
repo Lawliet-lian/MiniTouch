@@ -5,8 +5,10 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Point;
+import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.text.TextUtils;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -21,6 +23,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.lawliet.minitouch.R;
+import com.lawliet.minitouch.core.AppInfo;
 import com.lawliet.minitouch.core.AppRepo;
 import com.lawliet.minitouch.core.PrefsRepository;
 
@@ -32,7 +35,8 @@ import java.util.List;
  * 结构：全屏 Overlay 容器（root）+ 锚定面板（view_panel）。
  * - 面板锚定球位置展开，超出屏幕边时由调用方给出 showToLeft 翻转方向；
  * - root 拦截面板外区域的 DOWN 事件 → 收起面板（§7.3"点击面板外收起"）；
- * - 上排：常用程序宫格（Phase 1，动态填充 LinearLayout 行，与金刚行同构保证列对齐）；
+ * - 标题行：应用名 + 收起（×）/ 设置（齿轮）按钮；
+ * - 上排：常用程序宫格（Phase 1，动态填充 LinearLayout 行，与金刚行同构保证列对齐，图标下方附应用名）；
  * - 下排：三大金刚（返回/主页/多任务）—— Phase 2 已接入。
  *
  * 尺寸链路（F6）：先按屏高预算反推格子尺寸，面板宽度再随宫格内容自适应，横竖间隙统一；
@@ -42,20 +46,25 @@ public class PanelController {
 
     private static final String TAG = "PanelController";
 
-    /** 面板宽度上限 = 短边百分比（内容自适应宽度再经此夹取，防竖屏过宽） */
-    private static final float PANEL_WIDTH_MAX_SHORT_SIDE_RATIO = 0.60f;
-    /** 面板宽度下限（dp）：保证标题行（标题 + 两个按钮）放得下 */
+    /** 宫格计算格径时使用的宽度上限，占屏幕短边的比例。 */
+    private static final float GRID_WIDTH_MAX_SHORT_SIDE_RATIO = 0.60f;
+    /** 额外宽度均分给三列，在图标之间留出更多横向空间。 */
+    private static final int PANEL_EXTRA_WIDTH_DP = 36;
+    /** 面板宽度下限（dp）：保证标题行（标题 + 收起/设置两个按钮）放得下 */
     private static final int PANEL_WIDTH_MIN_DP = 260;
     /** 面板左右 padding（dp）：与 R.dimen.panel_padding 保持同步 */
     private static final int PANEL_PADDING_DP = 12;
-    /** 宫格高度预算比例：三行宫格整体至多占屏高此比例，防面板底部溢出被裁 */
-    private static final float GRID_HEIGHT_BUDGET_RATIO = 0.52f;
-    /** 宫格统一间隙（dp）：横竖同值，修复"横疏竖挤"的节奏失衡 */
+    /** 宫格最多占屏高 60%，屏高较小时为标题栏和导航降低预算。 */
+    private static final float GRID_HEIGHT_BUDGET_RATIO = 0.60f;
+    private static final float COMPACT_GRID_HEIGHT_BUDGET_RATIO = 0.52f;
+    private static final int NON_GRID_HEIGHT_RESERVE_DP = 180;
+    /** 宫格基础间隙（dp），横向余量还包括额外面板宽度。 */
     private static final int GRID_GAP_DP = 8;
-    /** 金刚键帽宽 = 格子比例：比键帽高略宽，呈稍扁的横向长方形（用户要求"底色更宽、长方形一点"） */
-    private static final float NAV_KEY_WIDTH_RATIO = 0.7f;
-    /** 金刚键帽高 = 格子比例：用户反馈旧 72% 方形键帽偏大，收敛为 55% */
+    /** 应用名单行字高以外预留的空间，含字体上下留白和 2dp 间距。 */
+    private static final int APP_LABEL_EXTRA_HEIGHT_DP = 8;
+    /** 导航键沿用与宫格的高度比例，将原标签的空间用于点击区域。 */
     private static final float NAV_KEY_HEIGHT_RATIO = 0.55f;
+    private static final int NAV_KEY_EXTRA_HEIGHT_DP = 12;
     /** 宫格列数：Q4 拍板上限 9 格，横屏按 3 列 × 3 行排布 */
     private static final int GRID_COLUMN_COUNT = 3;
 
@@ -77,6 +86,7 @@ public class PanelController {
 
         /** 下排金刚格被点击（Phase 2） */
         void onNavActionClicked(int action);
+
     }
 
     private final Context context;
@@ -159,50 +169,49 @@ public class PanelController {
         this.gridCellSize = cellSize;
         populateAppGrid(grid, cellSize);
 
-        // 下排：三大金刚（返回/主页/多任务）—— Phase 2 已接入，V1 无障碍实测通过 → 整行可见。
-        LinearLayout navRow = panel.findViewById(R.id.ll_nav_row);
-        navRow.setVisibility(View.VISIBLE);
-        // 金刚按钮尺寸与宫格格子同源换算（F6）：键帽宽取格子 75%、高取 55%，呈稍扁横向长方形；
-        // 内边距按键帽高的 12% 让图标相对更大
-        int navW = (int) (cellSize * NAV_KEY_WIDTH_RATIO);
-        int navH = (int) (cellSize * NAV_KEY_HEIGHT_RATIO);
-        int navPad = (int) (navH * 0.12f);
+        int navH = Math.max(dp(48), (int) (cellSize * NAV_KEY_HEIGHT_RATIO) + dp(NAV_KEY_EXTRA_HEIGHT_DP));
+        int navPad = (int) (navH * 0.24f);
         int[] navIds = {R.id.btn_nav_back, R.id.btn_nav_home, R.id.btn_nav_recents};
         for (int id : navIds) {
             View btn = panel.findViewById(id);
             ViewGroup.LayoutParams blp = btn.getLayoutParams();
-            blp.width = navW;
             blp.height = navH;
             btn.setLayoutParams(blp);
             btn.setPadding(navPad, navPad, navPad, navPad);
         }
-        navRow.findViewById(R.id.btn_nav_back).setOnClickListener(v ->
+        panel.findViewById(R.id.btn_nav_back).setOnClickListener(v ->
                 callback.onNavActionClicked(NAV_BACK));
-        navRow.findViewById(R.id.btn_nav_home).setOnClickListener(v ->
+        panel.findViewById(R.id.btn_nav_home).setOnClickListener(v ->
                 callback.onNavActionClicked(NAV_HOME));
-        navRow.findViewById(R.id.btn_nav_recents).setOnClickListener(v ->
+        panel.findViewById(R.id.btn_nav_recents).setOnClickListener(v ->
                 callback.onNavActionClicked(NAV_RECENTS));
     }
 
     /**
      * 按屏幕尺寸反推格子尺寸（不依赖面板宽，断开旧"面板宽→格子"的循环依赖）：
-     * 高向 = 屏高 × 宫格高度预算 ÷ 3 行；宽向以面板宽度上限夹取；下限 dp(40)。
+     * 高向 = 屏高 × 宫格高度预算 ÷ 3 行，再扣除每格应用名标签预留高；宽向以面板宽度上限夹取；下限 dp(40)。
      */
     private int computeCellSize() {
-        int cellByHeight = (int) (getScreenHeight() * GRID_HEIGHT_BUDGET_RATIO) / GRID_COLUMN_COUNT;
-        int cellByWidth = (maxPanelWidth() - dp(2 * PANEL_PADDING_DP)) / GRID_COLUMN_COUNT;
+        int screenHeight = getScreenHeight();
+        int gridHeight = Math.max((int) (screenHeight * COMPACT_GRID_HEIGHT_BUDGET_RATIO),
+                Math.min((int) (screenHeight * GRID_HEIGHT_BUDGET_RATIO),
+                        screenHeight - dp(NON_GRID_HEIGHT_RESERVE_DP)));
+        int labelHeight = context.getResources().getDimensionPixelSize(R.dimen.app_label_text)
+                + dp(APP_LABEL_EXTRA_HEIGHT_DP);
+        int cellByHeight = gridHeight / GRID_COLUMN_COUNT - labelHeight;
+        int cellByWidth = (gridWidthLimit() - dp(2 * PANEL_PADDING_DP)) / GRID_COLUMN_COUNT;
         return Math.max(dp(40), Math.min(cellByHeight, cellByWidth));
     }
 
-    /** 面板宽度 = 3 列格子 + 左右 padding（内容自适应），再夹在下限与上限之间 */
+    /** 在内容宽度基础上加宽，并为屏幕两侧各留 4dp。 */
     private int computePanelWidth(int cellSize) {
         int contentWidth = cellSize * GRID_COLUMN_COUNT + dp(2 * PANEL_PADDING_DP);
-        return clamp(dp(PANEL_WIDTH_MIN_DP), contentWidth, maxPanelWidth());
+        int baseWidth = clamp(dp(PANEL_WIDTH_MIN_DP), contentWidth, gridWidthLimit());
+        return Math.min(baseWidth + dp(PANEL_EXTRA_WIDTH_DP), getScreenWidth() - 2 * dp(4));
     }
 
-    /** 面板宽度上限：屏幕短边 60%（防竖屏过宽） */
-    private int maxPanelWidth() {
-        return (int) (Math.min(getScreenWidth(), getScreenHeight()) * PANEL_WIDTH_MAX_SHORT_SIDE_RATIO);
+    private int gridWidthLimit() {
+        return (int) (Math.min(getScreenWidth(), getScreenHeight()) * GRID_WIDTH_MAX_SHORT_SIDE_RATIO);
     }
 
     /** 动态填充常用 App 宫格（数据源：PrefsRepository，图标：AppRepo 按需加载） */
@@ -215,6 +224,7 @@ public class PanelController {
             empty.setText(R.string.panel_empty_hint);
             empty.setTextColor(0xB3FFFFFF);
             empty.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            empty.setTypeface(empty.getTypeface(), Typeface.BOLD);
             empty.setGravity(Gravity.CENTER);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -223,8 +233,7 @@ public class PanelController {
             grid.addView(empty, lp);
             return;
         }
-        // 逐行填充：每行一个横向 LinearLayout，三格 weight 等分 + 列内居中——
-        // 与下排金刚行（weight 三等分）同构，列中心同在 1/6、1/2、5/6，任意屏宽下对齐
+        // 每行三列等宽，末行不足三项时用空列保留位置。
         for (int start = 0; start < pkgs.size(); start += GRID_COLUMN_COUNT) {
             LinearLayout row = new LinearLayout(context);
             row.setOrientation(LinearLayout.HORIZONTAL);
@@ -234,31 +243,55 @@ public class PanelController {
             grid.addView(row, rowLp);
             for (int col = 0; col < GRID_COLUMN_COUNT; col++) {
                 int index = start + col;
-                // weight 单元容器：末行不足 3 格时列位也不偏移
-                LinearLayout cellWrap = new LinearLayout(context);
-                cellWrap.setGravity(Gravity.CENTER);
-                row.addView(cellWrap, new LinearLayout.LayoutParams(
+                View cell = index < pkgs.size()
+                        ? createAppCell(pkgs.get(index), cellSize)
+                        : new View(context);
+                row.addView(cell, new LinearLayout.LayoutParams(
                         0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-                if (index < pkgs.size()) {
-                    // 格径 = 格子 - 统一间隙：水平间隙（列宽-格径）与垂直间隙（行 margin）同值
-                    cellWrap.addView(createAppCell(pkgs.get(index), cellSize),
-                            new LinearLayout.LayoutParams(cellSize - dp(GRID_GAP_DP), cellSize - dp(GRID_GAP_DP)));
-                }
             }
         }
     }
 
-    /** 单个 App 格：圆形半透明底（按下提亮）+ 应用图标，点击 → callback（§4.2 App 格分发） */
+    /** 单个 App 格：圆形半透明底图标 + 下方应用名标签；点击/长按绑整格（点名字也能启动），整格按下时圆底同步提亮（§4.2 App 格分发） */
     private View createAppCell(String pkg, int cellSize) {
-        ImageView cell = new ImageView(context);
-        cell.setBackgroundResource(R.drawable.bg_app_cell);
+        // 圆形图标固定大小，名称使用整列宽度。
+        LinearLayout cell = new LinearLayout(context);
+        cell.setOrientation(LinearLayout.VERTICAL);
+        cell.setGravity(Gravity.CENTER_HORIZONTAL);
+
+        ImageView iconView = new ImageView(context);
+        iconView.setBackgroundResource(R.drawable.bg_app_cell);
+        // drawable 状态跟随父容器：点击落在整格上，圆底 selector 仍能收到 pressed 提亮反馈
+        iconView.setDuplicateParentStateEnabled(true);
         Drawable icon = appRepo.loadIcon(pkg);
         if (icon != null) {
             // 图标视觉归一化：裁掉透明边后统一尺寸（用户要求每个图案一样大）
-            cell.setImageDrawable(normalizeIcon(icon));
+            iconView.setImageDrawable(normalizeIcon(icon));
         }
-        int iconPad = (int) (cellSize * 0.18f); // 图标内边距：格子的 18%（图标内容约占圆径 64%，圆底不显空）
-        cell.setPadding(iconPad, iconPad, iconPad, iconPad);
+        int iconSize = cellSize - dp(GRID_GAP_DP);
+        int iconPad = (int) (iconSize * 0.16f);
+        iconView.setPadding(iconPad, iconPad, iconPad, iconPad);
+        cell.addView(iconView, new LinearLayout.LayoutParams(iconSize, iconSize));
+
+        // 应用名使用本地化显示名。
+        // 宽度限在格内，超长单行省略，不换行不撑高格子
+        TextView label = new TextView(context);
+        AppInfo info = appRepo.findByPackage(pkg);
+        label.setText(info != null ? info.label : pkg); // App 已卸载等查不到时兜底显示包名
+        label.setTextColor(context.getColor(R.color.text_on_panel));
+        label.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                context.getResources().getDimension(R.dimen.app_label_text));
+        label.setTypeface(label.getTypeface(), Typeface.BOLD);
+        label.setMaxLines(1);
+        label.setEllipsize(TextUtils.TruncateAt.END);
+        label.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        labelLp.topMargin = dp(2);
+        labelLp.setMarginStart(dp(GRID_GAP_DP / 2));
+        labelLp.setMarginEnd(dp(GRID_GAP_DP / 2));
+        cell.addView(label, labelLp);
+
         cell.setOnClickListener(v -> callback.onAppCellClicked(pkg));
         cell.setOnLongClickListener(v -> {
             // TODO(F8)：长按格子弹"移除/换位置"快捷菜单，先留桩

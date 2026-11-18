@@ -4,9 +4,8 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- 两条对角粗条交叉成 X：用旋转矩形路径绘制，端点圆角由 strokeCap 表达 -->
     <path
-        android:pathData="M6,6 L18,18 M18,6 L6,18"
+        android:pathData="M4,4 L20,20 M20,4 L4,20"
         android:strokeColor="#FFFFFFFF"
         android:strokeWidth="2.4"
         android:strokeLineCap="round" />

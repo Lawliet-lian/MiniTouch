@@ -2,7 +2,7 @@
 
 ## 打包调试 APK
 
-准备 JDK 17、Android SDK Platform 34 和 Gradle 8.4。首次构建还需要下载项目依赖。Android SDK 路径可通过项目根目录下的 `local.properties` 配置，例如：
+准备 JDK 17 和 Android SDK Platform 34。项目使用 Gradle Wrapper，首次构建会按需下载 Gradle 8.4 和项目依赖。Android SDK 路径可通过项目根目录下的 `local.properties` 配置，例如：
 
 ```properties
 sdk.dir=/Users/lawliet/Library/Android/sdk
@@ -11,14 +11,7 @@ sdk.dir=/Users/lawliet/Library/Android/sdk
 在项目根目录执行：
 
 ```bash
-gradle :app:assembleDebug
-```
-
-本机如果没有将 Gradle 加入 PATH，可以使用现有的 Gradle 8.4：
-
-```bash
-cd /Users/lawliet/Documents/WorkSpace/Lawliet-lian/MiniTouch
-~/.gradle/wrapper/dists/gradle-8.4-bin/1w5dpkrfk8irigvoxmyhowfim/gradle-8.4/bin/gradle :app:assembleDebug
+./gradlew :app:assembleDebug
 ```
 
 构建成功后，调试签名的安装包位于 `app/build/outputs/apk/debug/MiniTouch-debug.apk`，可复制到 Android 9 车机安装测试。项目目前未配置正式发布签名。

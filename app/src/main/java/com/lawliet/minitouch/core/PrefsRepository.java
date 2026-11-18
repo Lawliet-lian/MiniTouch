@@ -11,7 +11,7 @@ import java.util.List;
  * 配置持久化封装（§4.1 PrefsRepository）。
  * Service 与 Activity 共享同一份 SharedPreferences（文件级共享，进程内单例）。
  *
- * 当前覆盖：常用 App 列表、球大小/透明度、隐藏延迟、球位置记忆。
+ * 当前覆盖：常用 App 列表、球大小/透明度、隐藏延迟、球位置记忆、闪切模式、双击动作。
  * （面板标题固定为应用名、无任务管理器 —— Q5/Q1 已定不做。）
  */
 public final class PrefsRepository {
@@ -25,6 +25,7 @@ public final class PrefsRepository {
     public static final String KEY_ALPHA_IDLE = "alpha_idle";              // F1：半透明隐藏态透明度 0~1
     public static final String KEY_HIDE_DELAY_MS = "hide_delay_ms";        // F1：无操作隐藏延迟（默认 3s）
     public static final String KEY_QUICK_SWITCH_MODE = "quick_switch_mode"; // 闪切模式：单击球在首项 App 与主页间来回切换
+    public static final String KEY_DOUBLE_TAP_ACTION = "double_tap_action"; // 双击悬浮球执行的动作（DOUBLE_TAP_* 取值）
     private static final String KEY_BALL_X = "ball_x";                     // 球位置记忆（贴边后的 x）
     private static final String KEY_BALL_Y = "ball_y";                     // 球位置记忆（y）
 
@@ -36,6 +37,19 @@ public final class PrefsRepository {
     public static final long DEFAULT_HIDE_DELAY_MS = 3000L;
     /** Q4 拍板：常用程序宫格上限 9 个（横屏面板 3 列 × 3 行） */
     public static final int MAX_FAVORITES = 9;
+
+    // ===== 双击动作取值：数值即设置页下拉框 R.array.double_tap_action_entries 的下标，两处顺序必须一致 =====
+    /** 无：双击不做任何事，此时单击抬手即响应（不再等待约 300ms 的双击判定） */
+    public static final int DOUBLE_TAP_NONE = 0;
+    /** 返回（车机通常没有实体返回键，作为默认值） */
+    public static final int DOUBLE_TAP_BACK = 1;
+    /** 回主页 */
+    public static final int DOUBLE_TAP_HOME = 2;
+    /** 打开多任务（最近任务概览屏），与面板「多任务」同源 */
+    public static final int DOUBLE_TAP_RECENTS = 3;
+    /** 启动序号第二的常用 App */
+    public static final int DOUBLE_TAP_SECOND_APP = 4;
+    public static final int DEFAULT_DOUBLE_TAP_ACTION = DOUBLE_TAP_BACK;
 
     private static volatile PrefsRepository sInstance;
 
@@ -107,6 +121,25 @@ public final class PrefsRepository {
 
     public void setQuickSwitchMode(boolean enabled) {
         sp.edit().putBoolean(KEY_QUICK_SWITCH_MODE, enabled).apply();
+    }
+
+    // ==================== 双击动作 ====================
+
+    /**
+     * 双击悬浮球执行的动作（DOUBLE_TAP_* 之一），默认「返回」。
+     * 越界值（如旧版本残留或手改配置）一律回退默认值，避免服务侧走到未知分支。
+     * 与闪切开关一致，「恢复默认」（resetBallParams）不重置它。
+     */
+    public int getDoubleTapAction() {
+        int action = sp.getInt(KEY_DOUBLE_TAP_ACTION, DEFAULT_DOUBLE_TAP_ACTION);
+        if (action < DOUBLE_TAP_NONE || action > DOUBLE_TAP_SECOND_APP) {
+            return DEFAULT_DOUBLE_TAP_ACTION;
+        }
+        return action;
+    }
+
+    public void setDoubleTapAction(int action) {
+        sp.edit().putInt(KEY_DOUBLE_TAP_ACTION, action).apply();
     }
 
     public boolean isAccessibilityRecoveryEnabled() {

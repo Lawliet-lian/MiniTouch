@@ -111,6 +111,33 @@
             android:text="@string/settings_quick_switch_desc"
             android:textSize="12sp" />
 
+        <!-- 双击悬浮球动作：下拉选择（下标即 PrefsRepository.DOUBLE_TAP_*），改动即落库，服务侧监听 prefs 实时生效 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/settings_double_tap" />
+
+            <Spinner
+                android:id="@+id/sp_double_tap_action"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/settings_double_tap_desc"
+            android:textSize="12sp" />
+
         <!-- 球服务操作：启动悬浮球 / 隐藏悬浮球 / 恢复默认参数（恢复后服务侧监听 prefs 自动热更新） -->
         <LinearLayout
             android:layout_width="match_parent"

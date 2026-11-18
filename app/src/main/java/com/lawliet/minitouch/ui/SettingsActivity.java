@@ -3,7 +3,11 @@ package com.lawliet.minitouch.ui;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.SeekBar;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -50,6 +54,7 @@ public class SettingsActivity extends AppCompatActivity {
         setupAppList();
         setupBallParams();
         setupQuickSwitch();
+        setupDoubleTapAction();
         SwitchCompat recovery = findViewById(R.id.sw_a11y_recovery);
         recovery.setChecked(prefs.isAccessibilityRecoveryEnabled());
         recovery.setOnCheckedChangeListener((button, checked) ->
@@ -153,6 +158,34 @@ public class SettingsActivity extends AppCompatActivity {
         sw.setChecked(prefs.isQuickSwitchMode());
         sw.setOnCheckedChangeListener((buttonView, isChecked) ->
                 prefs.setQuickSwitchMode(isChecked));
+    }
+
+    // ==================== 双击悬浮球动作 ====================
+
+    /**
+     * 双击动作下拉框：选项来自 R.array.double_tap_action_entries，下标即 PrefsRepository.DOUBLE_TAP_* 取值。
+     * 选中即落库，FloatingBallService 监听 prefs 实时切换手势识别方式（选「无」时单击不再等双击判定）。
+     */
+    private void setupDoubleTapAction() {
+        Spinner sp = findViewById(R.id.sp_double_tap_action);
+        ArrayAdapter<CharSequence> spAdapter = ArrayAdapter.createFromResource(
+                this, R.array.double_tap_action_entries, android.R.layout.simple_spinner_item);
+        spAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        sp.setAdapter(spAdapter);
+        // 先回显当前值再挂监听；不带动画，避免初始化时触发一次多余的落库
+        sp.setSelection(prefs.getDoubleTapAction(), false);
+        sp.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (position != prefs.getDoubleTapAction()) {
+                    prefs.setDoubleTapAction(position);
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
     }
 
     // ==================== 球服务操作：启动 / 隐藏 / 恢复默认 ====================
