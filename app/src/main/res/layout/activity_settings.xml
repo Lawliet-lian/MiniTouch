@@ -96,7 +96,7 @@
             android:layout_height="wrap_content"
             android:max="100" />
 
-        <!-- 闪切模式：开启后单击球不展开 9 宫格面板，改为在首项 App 与主页间来回切换 -->
+        <!-- 闪切模式：开启后单击球不展开 快捷面板，改为在首项 App 与主页间来回切换 -->
         <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/sw_quick_switch"
             android:layout_width="match_parent"

@@ -31,6 +31,7 @@ import com.lawliet.minitouch.accessibility.NavAccessibilityService;
 import com.lawliet.minitouch.core.AppRepo;
 import com.lawliet.minitouch.core.PrefsRepository;
 import com.lawliet.minitouch.core.ReviveScheduler;
+import com.lawliet.minitouch.ui.EditAppNameActivity;
 import com.lawliet.minitouch.ui.SettingsActivity;
 
 import java.util.List;
@@ -567,7 +568,7 @@ public class FloatingBallService extends Service implements PanelController.Call
             return; // 长按已展开面板，本次抬手不再当单击
         }
         restoreBallAlpha();
-        // 闪切模式：不默认展开 9 宫格面板（长按 1 秒才开），单击即在首项 App 与主页间来回切换
+        // 闪切模式：不默认展开 快捷面板（长按 1 秒才开），单击即在首项 App 与主页间来回切换
         if (prefs.isQuickSwitchMode()) {
             if (panelShowing) {
                 closePanel(); // 长按打开的面板：单击球先收起（不闪切，防误触切走界面）
@@ -695,13 +696,12 @@ public class FloatingBallService extends Service implements PanelController.Call
 
         // 面板锚定球位置展开，靠边自动翻转方向（§5-F2 / F6 短边换算）
         int screenW = getScreenWidth();
-        int screenH = getScreenHeight();
         boolean showToLeft = (ballLp.x + ballSize / 2) > screenW / 2; // 球在右半屏 → 面板向左展开
         int[] ballLocation = new int[2];
         ballView.getLocationOnScreen(ballLocation);
         int anchorX = showToLeft ? ballLocation[0] : ballLocation[0] + ballSize;
         int anchorY = ballLocation[1] + ballSize / 2;
-        panelController.show(anchorX, anchorY, screenW, screenH, showToLeft);
+        panelController.show(anchorX, anchorY, showToLeft);
         panelShowing = true;
     }
 
@@ -732,6 +732,12 @@ public class FloatingBallService extends Service implements PanelController.Call
             // F3：拿不到 launch intent（已卸载/系统级 disable，§10-R7）→ toast 说明
             Toast.makeText(this, R.string.toast_launch_failed, Toast.LENGTH_SHORT).show();
         }
+    }
+
+    @Override
+    public void onEditAppName(String pkg, String originalName) {
+        closePanel();
+        startActivity(EditAppNameActivity.createIntent(this, pkg, originalName));
     }
 
     @Override

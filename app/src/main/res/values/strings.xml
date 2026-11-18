@@ -67,9 +67,12 @@
         <item>打开第二个常用程序</item>
     </string-array>
     <string name="settings_section_apps">常用程序（已选置顶，序号即面板宫格顺序）</string>
-    <string name="settings_favorite_count">已选 %1$d / %2$d · 点击整行勾选/取消，按住 ≡ 拖动调整顺序</string>
+    <string name="settings_favorite_count">已选 %1$d 个 · 点击整行勾选/取消，按住 ≡ 拖动排序。长按悬浮面板里的应用可改名</string>
+    <string name="edit_app_name_title">编辑应用名称</string>
+    <string name="edit_app_name_save">保存</string>
+    <string name="edit_app_name_reset">恢复原名</string>
     <string name="settings_drag_handle_desc">拖动调整顺序</string>
-    <string name="settings_favorite_limit_reached">已达到常用程序数量上限</string>
+    <string name="panel_page_number">第 %1$d 页，共 %2$d 页</string>
     <string name="btn_go_permission">去系统设置</string>
     <string name="btn_reset_ball_params">恢复默认参数</string>
 

@@ -8,7 +8,6 @@ import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
@@ -19,7 +18,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.lawliet.minitouch.R;
 import com.lawliet.minitouch.core.AppInfo;
 import com.lawliet.minitouch.core.AppRepo;
-import com.lawliet.minitouch.core.PrefsRepository;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,7 +33,7 @@ import java.util.Set;
  * - 所见即所得：已选区自上而下的顺序就是面板宫格顺序，排序结果直接可见；
  * - 点整行切换勾选：勾选后移入已选区末尾，取消后回落到未选区的名称序位置；
  * - 按住 ≡ 手柄（或长按整行）拖动，只能在已选区内调整顺序；
- * - 超出上限 MAX_FAVORITES（Q4）时拒绝勾选并 toast；所有改动即落库（无保存按钮）。
+ * - 所有改动即落库（无保存按钮）。
  * 搜索框仍留 TODO（M3 阶段补齐）。
  */
 public class InstalledAppAdapter extends RecyclerView.Adapter<InstalledAppAdapter.Holder> {
@@ -75,7 +73,7 @@ public class InstalledAppAdapter extends RecyclerView.Adapter<InstalledAppAdapte
             byPkg.put(app.packageName, app);
         }
         // 已选区：按持久化顺序取出。已卸载（不在可启动列表中）的包既无法展示也无法取消，
-        // 直接丢弃，避免白占名额；下次任意改动落库时一并清掉
+        // 直接丢弃；下次任意改动落库时一并清掉
         Set<String> picked = new HashSet<>();
         for (String pkg : initialFavorites) {
             AppInfo app = byPkg.get(pkg);
@@ -192,7 +190,7 @@ public class InstalledAppAdapter extends RecyclerView.Adapter<InstalledAppAdapte
     /**
      * 切换勾选：
      * - 已选 → 取消：移出已选区，按名称序插回未选区；
-     * - 未选 → 勾选：移到已选区末尾（即宫格最后一格），超上限则拒绝并提示。
+     * - 未选 → 勾选：移到已选区末尾（即宫格最后一格）。
      */
     private void toggleFavorite(int pos) {
         int target;
@@ -207,12 +205,6 @@ public class InstalledAppAdapter extends RecyclerView.Adapter<InstalledAppAdapte
             }
             rows.add(target, app);
         } else {
-            if (favCount >= PrefsRepository.MAX_FAVORITES) {
-                // 超上限：不移动，仅提示（Q4 拍板上限 9）
-                Toast.makeText(recyclerView.getContext(),
-                        R.string.settings_favorite_limit_reached, Toast.LENGTH_SHORT).show();
-                return;
-            }
             AppInfo app = rows.remove(pos);
             target = favCount;
             rows.add(target, app);

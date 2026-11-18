@@ -53,7 +53,8 @@ android {
 }
 
 dependencies {
-    // 仅引入必要库：Activity/AppCompat + RecyclerView（设置页列表）
+    // AndroidX：AppCompat、设置列表和应用面板分页。
     implementation 'androidx.appcompat:appcompat:1.3.1'
     implementation 'androidx.recyclerview:recyclerview:1.2.1'
+    implementation 'androidx.viewpager:viewpager:1.0.0'
 }

@@ -102,7 +102,7 @@ public class SettingsActivity extends AppCompatActivity {
     private void refreshFavoriteCount() {
         TextView tv = findViewById(R.id.tv_favorite_count);
         tv.setText(getString(R.string.settings_favorite_count,
-                adapter.currentFavorites().size(), PrefsRepository.MAX_FAVORITES));
+                adapter.currentFavorites().size()));
     }
 
     // ==================== 球参数（F8） ====================
@@ -149,7 +149,7 @@ public class SettingsActivity extends AppCompatActivity {
     // ==================== 闪切模式开关 ====================
 
     /**
-     * 闪切模式：开启后单击悬浮球不展开 9 宫格面板，
+     * 闪切模式：开启后单击悬浮球不展开 快捷面板，
      * 改为在序号第一的常用 App 与主页间来回切换（切换逻辑在 FloatingBallService）。
      * 与滑块一致“改动即落库”，服务侧监听 prefs 自动生效，无需额外通知。
      */

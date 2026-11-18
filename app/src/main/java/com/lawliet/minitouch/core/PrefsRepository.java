@@ -17,6 +17,7 @@ import java.util.List;
 public final class PrefsRepository {
 
     private static final String FILE_NAME = "minitouch_prefs";
+    private static final String APP_LABEL_PREFIX = "app_label:";
 
     // ===== Key 定义（对外公开球参数 Key，供 FloatingBallService 热更新监听比对） =====
     public static final String KEY_FAVORITE_PKGS = "favorite_pkgs";       // F3：常用 App 包名（有序，'|' 分隔）
@@ -35,9 +36,6 @@ public final class PrefsRepository {
     public static final float DEFAULT_ALPHA_ACTIVE = 0.92f;
     public static final float DEFAULT_ALPHA_IDLE = 0.30f;
     public static final long DEFAULT_HIDE_DELAY_MS = 3000L;
-    /** Q4 拍板：常用程序宫格上限 9 个（横屏面板 3 列 × 3 行） */
-    public static final int MAX_FAVORITES = 9;
-
     // ===== 双击动作取值：数值即设置页下拉框 R.array.double_tap_action_entries 的下标，两处顺序必须一致 =====
     /** 无：双击不做任何事，此时单击抬手即响应（不再等待约 300ms 的双击判定） */
     public static final int DOUBLE_TAP_NONE = 0;
@@ -109,10 +107,27 @@ public final class PrefsRepository {
         sp.edit().putString(KEY_FAVORITE_PKGS, sb.toString()).apply();
     }
 
+    public String getAppDisplayName(String packageName, String originalName) {
+        return sp.getString(APP_LABEL_PREFIX + packageName, originalName);
+    }
+
+    /** 空名称清除别名，跟随应用的系统名称。 */
+    public void setAppDisplayName(String packageName, String name) {
+        String label = name.replace('\n', ' ').replace('\r', ' ').trim();
+        String key = APP_LABEL_PREFIX + packageName;
+        SharedPreferences.Editor editor = sp.edit();
+        if (label.isEmpty()) {
+            editor.remove(key);
+        } else {
+            editor.putString(key, label);
+        }
+        editor.apply();
+    }
+
     // ==================== 闪切模式（单击球快速来回切换） ====================
 
     /**
-     * 闪切模式开关：开启后单击悬浮不再展开 9 宫格面板，
+     * 闪切模式开关：开启后单击悬浮不再展开 快捷面板，
      * 改为在「序号第一的常用 App」与「主页」之间来回快速切换。
      */
     public boolean isQuickSwitchMode() {

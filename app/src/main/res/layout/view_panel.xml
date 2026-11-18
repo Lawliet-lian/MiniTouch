@@ -58,15 +58,21 @@
         android:layout_marginTop="8dp"
         android:background="@color/panel_divider" />
 
-    <!-- ===== 中部：常用程序宫格（F3，Phase 1；代码动态填充，列数=3，上限 9 格——Q4 拍板）
-         用纵向 LinearLayout 容器 + 每行 weight 三等分，与下排金刚行同构，列中心天然对齐
-         （GridLayout 的 columnSpec weight 在 overlay 的 AT_MOST measure 下不可靠，已弃用） ===== -->
-    <LinearLayout
-        android:id="@+id/grid_apps"
+    <!-- 应用区左右滑动，标题和底部导航固定。 -->
+    <androidx.viewpager.widget.ViewPager
+        android:id="@+id/apps_pager"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:orientation="vertical" />
+        android:layout_height="0dp"
+        android:layout_marginTop="8dp" />
+
+    <LinearLayout
+        android:id="@+id/panel_page_dots"
+        android:layout_width="match_parent"
+        android:layout_height="20dp"
+        android:gravity="center"
+        android:importantForAccessibility="yes"
+        android:orientation="horizontal"
+        android:visibility="gone" />
 
     <View
         android:layout_width="match_parent"

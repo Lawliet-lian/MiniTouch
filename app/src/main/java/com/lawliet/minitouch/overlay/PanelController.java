@@ -4,10 +4,10 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Point;
 import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.TypedValue;
@@ -20,7 +20,12 @@ import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.Space;
 import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.viewpager.widget.PagerAdapter;
+import androidx.viewpager.widget.ViewPager;
 
 import com.lawliet.minitouch.R;
 import com.lawliet.minitouch.core.AppInfo;
@@ -36,28 +41,22 @@ import java.util.List;
  * - 面板锚定球位置展开，超出屏幕边时由调用方给出 showToLeft 翻转方向；
  * - root 拦截面板外区域的 DOWN 事件 → 收起面板（§7.3"点击面板外收起"）；
  * - 标题行：应用名 + 收起（×）/ 设置（齿轮）按钮；
- * - 上排：常用程序宫格（Phase 1，动态填充 LinearLayout 行，与金刚行同构保证列对齐，图标下方附应用名）；
- * - 下排：三大金刚（返回/主页/多任务）—— Phase 2 已接入。
- *
- * 尺寸链路（F6）：先按屏高预算反推格子尺寸，面板宽度再随宫格内容自适应，横竖间隙统一；
- * 宽度上限仍按屏幕短边百分比换算（沿用底子 A 的横屏修复思路）。
+ * - 中部：每页最多 8 个常用应用，按 4 列 × 2 行排列。
+ * - 下排：返回、主页、多任务。
  */
 public class PanelController {
 
     private static final String TAG = "PanelController";
 
-    /** 宫格计算格径时使用的宽度上限，占屏幕短边的比例。 */
-    private static final float GRID_WIDTH_MAX_SHORT_SIDE_RATIO = 0.60f;
-    /** 额外宽度均分给三列，在图标之间留出更多横向空间。 */
-    private static final int PANEL_EXTRA_WIDTH_DP = 36;
-    /** 面板宽度下限（dp）：保证标题行（标题 + 收起/设置两个按钮）放得下 */
+    private static final int PANEL_EDGE_MARGIN_DP = 4;
+    private static final int PANEL_EXTRA_WIDTH_DP = 48;
     private static final int PANEL_WIDTH_MIN_DP = 260;
-    /** 面板左右 padding（dp）：与 R.dimen.panel_padding 保持同步 */
-    private static final int PANEL_PADDING_DP = 12;
-    /** 宫格最多占屏高 60%，屏高较小时为标题栏和导航降低预算。 */
-    private static final float GRID_HEIGHT_BUDGET_RATIO = 0.60f;
-    private static final float COMPACT_GRID_HEIGHT_BUDGET_RATIO = 0.52f;
-    private static final int NON_GRID_HEIGHT_RESERVE_DP = 180;
+    private static final int GRID_COLUMN_COUNT = 4;
+    private static final int GRID_ROW_COUNT = 2;
+    /** 两行宫格的目标高度，最终以整块面板的实测高度为准。 */
+    private static final float GRID_HEIGHT_RATIO = 0.44f;
+    private static final int APPS_PER_PAGE = GRID_COLUMN_COUNT * GRID_ROW_COUNT;
+    private static final int MAX_VISIBLE_PAGE_DOTS = 7;
     /** 宫格基础间隙（dp），横向余量还包括额外面板宽度。 */
     private static final int GRID_GAP_DP = 8;
     /** 应用名单行字高以外预留的空间，含字体上下留白和 2dp 间距。 */
@@ -65,8 +64,6 @@ public class PanelController {
     /** 导航键沿用与宫格的高度比例，将原标签的空间用于点击区域。 */
     private static final float NAV_KEY_HEIGHT_RATIO = 0.55f;
     private static final int NAV_KEY_EXTRA_HEIGHT_DP = 12;
-    /** 宫格列数：Q4 拍板上限 9 格，横屏按 3 列 × 3 行排布 */
-    private static final int GRID_COLUMN_COUNT = 3;
 
     /** 金刚行动作类型（Phase 2 使用） */
     public static final int NAV_BACK = 0;
@@ -77,6 +74,9 @@ public class PanelController {
     public interface Callback {
         /** 上排 App 格被点击 */
         void onAppCellClicked(String pkg);
+
+        /** 长按应用格编辑面板内的名称。 */
+        void onEditAppName(String pkg, String originalName);
 
         /** 标题行设置齿轮 */
         void onSettingsClicked();
@@ -103,9 +103,14 @@ public class PanelController {
     private int anchorScreenY;
     private boolean expandLeft;
 
-    // 宫格容器引用：每次 show() 时按最新 prefs 重建（修复：设置页勾选后面板不刷新）
-    private LinearLayout appGrid;
+    private ViewPager appsPager;
+    private LinearLayout pageDots;
+    private List<String> favorites;
+    private int currentPage;
+    private int pageCount;
     private int gridCellSize;
+    private int fittedWidth;
+    private int fittedHeight;
 
     public PanelController(Context context, WindowManager windowManager, Callback callback) {
         this.context = context;
@@ -132,24 +137,14 @@ public class PanelController {
         panel = (LinearLayout) LayoutInflater.from(context)
                 .inflate(R.layout.view_panel, (ViewGroup) root, false);
 
-        // 面板尺寸（F6）：先按屏幕尺寸反推格子尺寸，面板宽度再随宫格内容自适应，
-        // 避免"高度预算生效但宽度仍按短边比例算"造成的列内水平大空白
-        int cellSize = computeCellSize();
-        int panelWidth = computePanelWidth(cellSize);
-
-        FrameLayout.LayoutParams flp = new FrameLayout.LayoutParams(
-                panelWidth, ViewGroup.LayoutParams.WRAP_CONTENT);
-        root.addView(panel, flp);
-
+        root.addView(panel, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addOnLayoutChangeListener((v, left, top, right, bottom,
-                                        oldLeft, oldTop, oldRight, oldBottom) -> positionPanel());
-
-        bindPanelViews(cellSize);
-        // 初始不可见：root 未加入 WindowManager，show() 时再 addView
+                                        oldLeft, oldTop, oldRight, oldBottom) -> root.post(this::fitPanelToWindow));
+        bindPanelViews();
     }
 
-    /** 绑定面板内部：标题、齿轮、宫格容器、金刚行 */
-    private void bindPanelViews(int cellSize) {
+    private void bindPanelViews() {
         // 标题行（Q5 拍板：面板标题不做用户自定义，固定显示应用名）
         TextView title = panel.findViewById(R.id.tv_panel_title);
         title.setText(R.string.app_name);
@@ -162,23 +157,16 @@ public class PanelController {
         panel.findViewById(R.id.btn_panel_close).setOnClickListener(v ->
                 callback.onClosePanelClicked());
 
-        // 上排：常用程序宫格（Phase 1，F3）。保存引用供 show() 时按最新配置重建。
-        // 格子尺寸统一由 computeCellSize() 按屏幕尺寸反推，面板宽度已随其自适应
-        LinearLayout grid = panel.findViewById(R.id.grid_apps);
-        this.appGrid = grid;
-        this.gridCellSize = cellSize;
-        populateAppGrid(grid, cellSize);
+        appsPager = panel.findViewById(R.id.apps_pager);
+        pageDots = panel.findViewById(R.id.panel_page_dots);
+        appsPager.addOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
+            @Override
+            public void onPageSelected(int position) {
+                currentPage = position;
+                updatePageDots();
+            }
+        });
 
-        int navH = Math.max(dp(48), (int) (cellSize * NAV_KEY_HEIGHT_RATIO) + dp(NAV_KEY_EXTRA_HEIGHT_DP));
-        int navPad = (int) (navH * 0.24f);
-        int[] navIds = {R.id.btn_nav_back, R.id.btn_nav_home, R.id.btn_nav_recents};
-        for (int id : navIds) {
-            View btn = panel.findViewById(id);
-            ViewGroup.LayoutParams blp = btn.getLayoutParams();
-            blp.height = navH;
-            btn.setLayoutParams(blp);
-            btn.setPadding(navPad, navPad, navPad, navPad);
-        }
         panel.findViewById(R.id.btn_nav_back).setOnClickListener(v ->
                 callback.onNavActionClicked(NAV_BACK));
         panel.findViewById(R.id.btn_nav_home).setOnClickListener(v ->
@@ -187,37 +175,103 @@ public class PanelController {
                 callback.onNavActionClicked(NAV_RECENTS));
     }
 
-    /**
-     * 按屏幕尺寸反推格子尺寸（不依赖面板宽，断开旧"面板宽→格子"的循环依赖）：
-     * 高向 = 屏高 × 宫格高度预算 ÷ 3 行，再扣除每格应用名标签预留高；宽向以面板宽度上限夹取；下限 dp(40)。
-     */
-    private int computeCellSize() {
-        int screenHeight = getScreenHeight();
-        int gridHeight = Math.max((int) (screenHeight * COMPACT_GRID_HEIGHT_BUDGET_RATIO),
-                Math.min((int) (screenHeight * GRID_HEIGHT_BUDGET_RATIO),
-                        screenHeight - dp(NON_GRID_HEIGHT_RESERVE_DP)));
-        int labelHeight = context.getResources().getDimensionPixelSize(R.dimen.app_label_text)
+    private void fitPanelToWindow() {
+        int width = root.getWidth();
+        int height = root.getHeight();
+        if (!visible || width <= 0 || height <= 0
+                || (width == fittedWidth && height == fittedHeight)) {
+            return;
+        }
+        fittedWidth = width;
+        fittedHeight = height;
+
+        int edgeSpace = 2 * dp(PANEL_EDGE_MARGIN_DP);
+        int availableWidth = Math.max(1, width - edgeSpace);
+        int availableHeight = Math.max(1, height - edgeSpace);
+        int padding = panel.getPaddingLeft() + panel.getPaddingRight();
+        int gridLabelHeight = context.getResources().getDimensionPixelSize(R.dimen.app_label_text)
                 + dp(APP_LABEL_EXTRA_HEIGHT_DP);
-        int cellByHeight = gridHeight / GRID_COLUMN_COUNT - labelHeight;
-        int cellByWidth = (gridWidthLimit() - dp(2 * PANEL_PADDING_DP)) / GRID_COLUMN_COUNT;
-        return Math.max(dp(40), Math.min(cellByHeight, cellByWidth));
+        int cellByHeight = (int) (height * GRID_HEIGHT_RATIO / GRID_ROW_COUNT) - gridLabelHeight;
+        int cellByWidth = (availableWidth - padding) / GRID_COLUMN_COUNT;
+        int minCellSize = dp(GRID_GAP_DP + 8);
+        gridCellSize = Math.max(minCellSize, Math.min(cellByWidth, cellByHeight));
+
+        int panelWidth;
+        int rows = pageCount > 1 ? GRID_ROW_COUNT
+                : (favorites.size() + GRID_COLUMN_COUNT - 1) / GRID_COLUMN_COUNT;
+        pageDots.setVisibility(pageCount > 1 ? View.VISIBLE : View.GONE);
+        do {
+            panelWidth = Math.min(availableWidth, Math.max(dp(PANEL_WIDTH_MIN_DP),
+                    gridCellSize * GRID_COLUMN_COUNT + padding + dp(PANEL_EXTRA_WIDTH_DP)));
+            sizeNavigationButtons();
+            ViewGroup.LayoutParams pagerParams = appsPager.getLayoutParams();
+            int contentWidth = Math.max(1, panelWidth - padding);
+            if (rows == 0) {
+                View emptyPage = createAppPage(0, gridLabelHeight);
+                emptyPage.measure(View.MeasureSpec.makeMeasureSpec(contentWidth, View.MeasureSpec.EXACTLY),
+                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+                pagerParams.height = emptyPage.getMeasuredHeight();
+            } else {
+                pagerParams.height = rows * (gridCellSize + gridLabelHeight);
+            }
+            appsPager.setLayoutParams(pagerParams);
+            measurePanel(panelWidth);
+            int overflow = panel.getMeasuredHeight() - availableHeight;
+            if (overflow <= 0 || gridCellSize == minCellSize) {
+                break;
+            }
+            gridCellSize = Math.max(minCellSize, gridCellSize - (overflow + 1) / 2);
+        } while (true);
+        int selectedPage = currentPage;
+        appsPager.setAdapter(new AppPages(gridLabelHeight));
+        appsPager.setCurrentItem(selectedPage, false);
+        currentPage = selectedPage;
+        updatePageDots();
+        positionPanel(panelWidth);
     }
 
-    /** 在内容宽度基础上加宽，并为屏幕两侧各留 4dp。 */
-    private int computePanelWidth(int cellSize) {
-        int contentWidth = cellSize * GRID_COLUMN_COUNT + dp(2 * PANEL_PADDING_DP);
-        int baseWidth = clamp(dp(PANEL_WIDTH_MIN_DP), contentWidth, gridWidthLimit());
-        return Math.min(baseWidth + dp(PANEL_EXTRA_WIDTH_DP), getScreenWidth() - 2 * dp(4));
+    private void sizeNavigationButtons() {
+        int navHeight = Math.max(dp(48), (int) (gridCellSize * NAV_KEY_HEIGHT_RATIO)
+                + dp(NAV_KEY_EXTRA_HEIGHT_DP));
+        int navPadding = (int) (navHeight * 0.24f);
+        int[] navIds = {R.id.btn_nav_back, R.id.btn_nav_home, R.id.btn_nav_recents};
+        for (int id : navIds) {
+            View button = panel.findViewById(id);
+            ViewGroup.LayoutParams params = button.getLayoutParams();
+            params.height = navHeight;
+            button.setLayoutParams(params);
+            button.setPadding(navPadding, navPadding, navPadding, navPadding);
+        }
     }
 
-    private int gridWidthLimit() {
-        return (int) (Math.min(getScreenWidth(), getScreenHeight()) * GRID_WIDTH_MAX_SHORT_SIDE_RATIO);
+    private void updatePageDots() {
+        pageDots.removeAllViews();
+        if (pageCount <= 1) {
+            return;
+        }
+        pageDots.setContentDescription(context.getString(
+                R.string.panel_page_number, currentPage + 1, pageCount));
+        int count = Math.min(pageCount, MAX_VISIBLE_PAGE_DOTS);
+        int first = Math.max(0, Math.min(currentPage - count / 2, pageCount - count));
+        for (int i = first; i < first + count; i++) {
+            View dot = new View(context);
+            GradientDrawable circle = new GradientDrawable();
+            circle.setShape(GradientDrawable.OVAL);
+            circle.setColor(i == currentPage ? Color.WHITE : 0x66FFFFFF);
+            dot.setBackground(circle);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(6), dp(6));
+            params.setMarginStart(dp(4));
+            params.setMarginEnd(dp(4));
+            pageDots.addView(dot, params);
+        }
     }
 
-    /** 动态填充常用 App 宫格（数据源：PrefsRepository，图标：AppRepo 按需加载） */
-    private void populateAppGrid(LinearLayout grid, int cellSize) {
-        grid.removeAllViews();
-        List<String> pkgs = prefs.getFavoritePkgs();
+    private View createAppPage(int page, int labelHeight) {
+        int start = page * APPS_PER_PAGE;
+        int end = Math.min(start + APPS_PER_PAGE, favorites.size());
+        List<String> pkgs = favorites.subList(start, end);
+        LinearLayout grid = new LinearLayout(context);
+        grid.setOrientation(LinearLayout.VERTICAL);
         if (pkgs.isEmpty()) {
             // F8 引导：尚未配置常用 App 时给出文案提示
             TextView empty = new TextView(context);
@@ -231,24 +285,59 @@ public class PanelController {
             lp.topMargin = dp(8);
             lp.bottomMargin = dp(8);
             grid.addView(empty, lp);
-            return;
+            return grid;
         }
-        // 每行三列等宽，末行不足三项时用空列保留位置。
-        for (int start = 0; start < pkgs.size(); start += GRID_COLUMN_COUNT) {
+        // 分页时保留两行的空间，末页不足一行也不会移动底部导航键。
+        int rows = pageCount > 1 ? GRID_ROW_COUNT
+                : (pkgs.size() + GRID_COLUMN_COUNT - 1) / GRID_COLUMN_COUNT;
+        int rowHeight = gridCellSize - dp(GRID_GAP_DP) + labelHeight;
+        for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
             LinearLayout row = new LinearLayout(context);
             row.setOrientation(LinearLayout.HORIZONTAL);
             LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                    ViewGroup.LayoutParams.MATCH_PARENT, rowHeight);
             rowLp.bottomMargin = dp(GRID_GAP_DP);
             grid.addView(row, rowLp);
             for (int col = 0; col < GRID_COLUMN_COUNT; col++) {
-                int index = start + col;
+                int index = rowIndex * GRID_COLUMN_COUNT + col;
                 View cell = index < pkgs.size()
-                        ? createAppCell(pkgs.get(index), cellSize)
-                        : new View(context);
+                        ? createAppCell(pkgs.get(index), gridCellSize)
+                        : new Space(context);
                 row.addView(cell, new LinearLayout.LayoutParams(
                         0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             }
+        }
+        return grid;
+    }
+
+    private class AppPages extends PagerAdapter {
+        private final int labelHeight;
+
+        AppPages(int labelHeight) {
+            this.labelHeight = labelHeight;
+        }
+
+        @Override
+        public int getCount() {
+            return pageCount;
+        }
+
+        @NonNull
+        @Override
+        public Object instantiateItem(@NonNull ViewGroup container, int position) {
+            View page = createAppPage(position, labelHeight);
+            container.addView(page);
+            return page;
+        }
+
+        @Override
+        public void destroyItem(@NonNull ViewGroup container, int position, @NonNull Object page) {
+            container.removeView((View) page);
+        }
+
+        @Override
+        public boolean isViewFromObject(@NonNull View view, @NonNull Object page) {
+            return view == page;
         }
     }
 
@@ -273,11 +362,12 @@ public class PanelController {
         iconView.setPadding(iconPad, iconPad, iconPad, iconPad);
         cell.addView(iconView, new LinearLayout.LayoutParams(iconSize, iconSize));
 
-        // 应用名使用本地化显示名。
+        // 优先显示用户自定义名称，其次是应用的本地化名称。
         // 宽度限在格内，超长单行省略，不换行不撑高格子
         TextView label = new TextView(context);
         AppInfo info = appRepo.findByPackage(pkg);
-        label.setText(info != null ? info.label : pkg); // App 已卸载等查不到时兜底显示包名
+        String originalName = info != null ? info.label : pkg;
+        label.setText(prefs.getAppDisplayName(pkg, originalName));
         label.setTextColor(context.getColor(R.color.text_on_panel));
         label.setTextSize(TypedValue.COMPLEX_UNIT_PX,
                 context.getResources().getDimension(R.dimen.app_label_text));
@@ -294,7 +384,7 @@ public class PanelController {
 
         cell.setOnClickListener(v -> callback.onAppCellClicked(pkg));
         cell.setOnLongClickListener(v -> {
-            // TODO(F8)：长按格子弹"移除/换位置"快捷菜单，先留桩
+            callback.onEditAppName(pkg, originalName);
             return true;
         });
         return cell;
@@ -352,43 +442,50 @@ public class PanelController {
      *
      * @param anchorX    球的 x（TOP|START 坐标系）
      * @param anchorY    球的 y
-     * @param screenW    当前屏幕宽
-     * @param screenH    当前屏幕高
-     * @param showToLeft 球在右半屏时面板向左展开；否则向右（§5-F2 超边翻转）
+     * @param showToLeft 球在右半屏时面板向左展开；否则向右
      */
-    public void show(int anchorX, int anchorY, int screenW, int screenH, boolean showToLeft) {
+    public void show(int anchorX, int anchorY, boolean showToLeft) {
         if (visible) {
             return;
         }
-        // 每次展开都按最新 prefs 重建宫格：设置页勾选/取消常用 App 后无需重启服务即生效
-        if (appGrid != null) {
-            populateAppGrid(appGrid, gridCellSize);
-        }
+        appsPager.setAdapter(null);
+        favorites = prefs.getFavoritePkgs();
+        pageCount = Math.max(1, (favorites.size() + APPS_PER_PAGE - 1) / APPS_PER_PAGE);
+        currentPage = 0;
+        fittedWidth = 0;
+        fittedHeight = 0;
         anchorScreenX = anchorX;
         anchorScreenY = anchorY;
         expandLeft = showToLeft;
         panel.setVisibility(View.INVISIBLE);
         windowManager.addView(root, rootLp);
         visible = true;
+        root.post(this::fitPanelToWindow);
     }
 
-    private void positionPanel() {
+    private void measurePanel(int panelWidth) {
+        panel.measure(View.MeasureSpec.makeMeasureSpec(panelWidth, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+    }
+
+    private void positionPanel(int panelWidth) {
         int width = root.getWidth();
         int height = root.getHeight();
         if (width <= 0 || height <= 0) return;
 
         FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) panel.getLayoutParams();
-        panel.measure(View.MeasureSpec.makeMeasureSpec(Math.min(lp.width, width), View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        measurePanel(panelWidth);
         int pw = panel.getMeasuredWidth();
         int ph = panel.getMeasuredHeight();
         int[] location = new int[2];
         root.getLocationOnScreen(location);
         int anchorX = anchorScreenX - location[0];
         int anchorY = anchorScreenY - location[1];
-        int x = clamp(dp(4), expandLeft ? anchorX - pw - dp(6) : anchorX + dp(6), width - pw - dp(4));
-        int y = clamp(dp(4), anchorY - ph / 2, height - ph - dp(4));
-        if (lp.leftMargin != x || lp.topMargin != y) {
+        int edge = dp(PANEL_EDGE_MARGIN_DP);
+        int x = clamp(edge, expandLeft ? anchorX - pw - dp(6) : anchorX + dp(6), width - pw - edge);
+        int y = clamp(edge, anchorY - ph / 2, height - ph - edge);
+        if (lp.width != panelWidth || lp.leftMargin != x || lp.topMargin != y) {
+            lp.width = panelWidth;
             lp.gravity = Gravity.TOP | Gravity.START;
             lp.setMargins(x, y, 0, 0);
             panel.setLayoutParams(lp);
@@ -419,26 +516,6 @@ public class PanelController {
     }
 
     // ==================== 工具 ====================
-
-    /**
-     * 屏幕尺寸：必须从 WindowManager 实时读取（getRealSize）。
-     * Service 类型的 Context 不跟随旋转重配置，Resources.getDisplayMetrics()
-     * 会停留在旧横屏值，导致竖屏下面板按旧尺寸布局溢出（显示 bug 根因）。
-     */
-    @SuppressWarnings("deprecation") // targetSdk 28：getRealSize 在当前目标版本下为正规 API
-    private Point screenSize() {
-        Point p = new Point();
-        windowManager.getDefaultDisplay().getRealSize(p);
-        return p;
-    }
-
-    private int getScreenWidth() {
-        return screenSize().x;
-    }
-
-    private int getScreenHeight() {
-        return screenSize().y;
-    }
 
     private int dp(float value) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,

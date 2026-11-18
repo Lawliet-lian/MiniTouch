@@ -46,6 +46,13 @@
             android:label="@string/title_settings"
             android:screenOrientation="unspecified" />
 
+        <activity
+            android:name=".ui.EditAppNameActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@style/Theme.MiniTouch.EditAppName" />
+
         <!-- ===== Service：悬浮球前台服务（F1/F2/F7） ===== -->
         <!-- targetSdk 28 无需 foregroundServiceType；由 startForegroundService 启动 -->
         <service
